@@ -10,6 +10,7 @@ class UpsReading(Base):
     __tablename__ = "ups_readings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ups_name: Mapped[str] = mapped_column(String(255), index=True)
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
     )

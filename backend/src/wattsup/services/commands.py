@@ -29,12 +29,13 @@ class SupportedCommand:
 
 
 class CommandService:
-    def __init__(self, client: NutClient, ups_name: str) -> None:
+    def __init__(self, client: NutClient, default_ups_name: str) -> None:
         self.client = client
-        self.ups_name = ups_name
+        self.default_ups_name = default_ups_name
 
-    async def list_commands(self) -> list[SupportedCommand]:
-        names = await self.client.get_supported_commands(self.ups_name)
+    async def list_commands(self, ups_name: str | None = None) -> list[SupportedCommand]:
+        ups_name = ups_name or self.default_ups_name
+        names = await self.client.get_supported_commands(ups_name)
         commands: list[SupportedCommand] = []
         for name in sorted(names):
             commands.append(
@@ -42,19 +43,20 @@ class CommandService:
                     name=name,
                     category=self._category(name),
                     dangerous=name in DANGEROUS_COMMANDS,
-                    description=await self.client.get_command_description(self.ups_name, name),
+                    description=await self.client.get_command_description(ups_name, name),
                 )
             )
         return commands
 
-    async def execute(self, command: str, *, confirmed: bool) -> None:
-        supported = {item.name: item for item in await self.list_commands()}
+    async def execute(self, command: str, *, confirmed: bool, ups_name: str | None = None) -> None:
+        ups_name = ups_name or self.default_ups_name
+        supported = {item.name: item for item in await self.list_commands(ups_name)}
         item = supported.get(command)
         if item is None:
             raise ValueError("Command is not supported by this UPS")
         if item.dangerous and not confirmed:
             raise PermissionError("Dangerous command requires explicit confirmation")
-        await self.client.execute_command(self.ups_name, command)
+        await self.client.execute_command(ups_name, command)
 
     @staticmethod
     def _category(name: str) -> str:

@@ -8,10 +8,10 @@ const friendlyName = (name: string) => {
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
-export function UpsDetails() {
+export function UpsDetails({ ups }: { ups: string }) {
   const { data = [] } = useQuery({
-    queryKey: ["variables"],
-    queryFn: getVariables,
+    queryKey: ["variables", ups],
+    queryFn: () => getVariables(ups),
     refetchInterval: 30_000,
   });
 

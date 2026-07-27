@@ -8,6 +8,7 @@ BatteryState = Literal["charging", "discharging", "full", "any"]
 
 
 class DeviceInput(BaseModel):
+    ups_name: str = Field(min_length=1, max_length=255)
     name: str = Field(min_length=1, max_length=100)
     host: str = Field(min_length=1, max_length=255)
     port: int = Field(default=22, ge=1, le=65535)

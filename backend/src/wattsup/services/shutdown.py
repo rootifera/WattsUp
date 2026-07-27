@@ -16,11 +16,12 @@ class ShutdownService:
         self.ssh = ssh
         self._triggered_devices: set[int] = set()
 
-    async def list_devices(self) -> list[RemoteDevice]:
+    async def list_devices(self, ups_name: str | None = None) -> list[RemoteDevice]:
+        query = select(RemoteDevice).order_by(RemoteDevice.name)
+        if ups_name is not None:
+            query = query.where(RemoteDevice.ups_name == ups_name)
         async with self.sessions() as session:
-            return list(
-                (await session.scalars(select(RemoteDevice).order_by(RemoteDevice.name))).all()
-            )
+            return list((await session.scalars(query)).all())
 
     async def get_device(self, device_id: int) -> RemoteDevice:
         async with self.sessions() as session:
@@ -154,7 +155,7 @@ class ShutdownService:
             return False, "Battery is above the configured threshold"
         return True, "All shutdown conditions match"
 
-    async def simulate(self, request: SimulationRequest) -> list[SimulationResult]:
+    async def simulate(self, request: SimulationRequest, ups_name: str) -> list[SimulationResult]:
         return [
             SimulationResult(
                 device_id=device.id,
@@ -162,7 +163,7 @@ class ShutdownService:
                 matches=(result := self.matches(device, request))[0],
                 reason=result[1],
             )
-            for device in await self.list_devices()
+            for device in await self.list_devices(ups_name)
         ]
 
     async def evaluate_status(self, status: UpsStatus) -> None:
@@ -184,7 +185,7 @@ class ShutdownService:
             battery_percentage=int(status.battery_charge),
         )
         config = await self.settings()
-        for device in await self.list_devices():
+        for device in await self.list_devices(status.ups_name):
             matches, reason = self.matches(device, condition)
             if not matches:
                 self._triggered_devices.discard(device.id)

@@ -38,11 +38,13 @@ class Poller:
     async def _run(self) -> None:
         while True:
             try:
-                status = await self.status_service.get_status()
-                if status.connected:
-                    await self.repository.add(status)
-                    if self.on_status is not None:
-                        await self.on_status(status)
+                units = await self.status_service.client.list_ups()
+                for ups_name in units:
+                    status = await self.status_service.get_status(ups_name)
+                    if status.connected:
+                        await self.repository.add(status)
+                        if self.on_status is not None:
+                            await self.on_status(status)
             except Exception:
                 logger.exception("UPS polling failed")
             await asyncio.sleep(self.interval_seconds)

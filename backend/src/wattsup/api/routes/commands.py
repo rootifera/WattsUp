@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from wattsup.core.auth import require_authenticated
 from wattsup.nut.exceptions import NutError
@@ -18,9 +18,12 @@ CommandServiceDependency = Annotated[CommandService, Depends(get_command_service
 
 
 @router.get("/commands", response_model=list[CommandInfo])
-async def get_commands(service: CommandServiceDependency) -> list[CommandInfo]:
+async def get_commands(
+    service: CommandServiceDependency,
+    ups: Annotated[str | None, Query()] = None,
+) -> list[CommandInfo]:
     try:
-        return [CommandInfo(**item.__dict__) for item in await service.list_commands()]
+        return [CommandInfo(**item.__dict__) for item in await service.list_commands(ups)]
     except NutError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
@@ -32,9 +35,10 @@ async def execute_command(
     name: str,
     body: ExecuteCommandRequest,
     service: CommandServiceDependency,
+    ups: Annotated[str | None, Query()] = None,
 ) -> CommandResult:
     try:
-        await service.execute(name, confirmed=body.confirmed)
+        await service.execute(name, confirmed=body.confirmed, ups_name=ups)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except PermissionError as error:

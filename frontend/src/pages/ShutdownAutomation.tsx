@@ -13,6 +13,7 @@ import { useState, type FormEvent } from "react";
 import { shutdownApi, type DeviceInput } from "../api/shutdown";
 
 const initialDevice: DeviceInput = {
+  ups_name: "",
   name: "",
   host: "",
   port: 22,
@@ -29,6 +30,17 @@ const inputClass =
   "rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-300 outline-none placeholder:text-slate-600 focus:border-cyan-900";
 const sudoersRule =
   "wattsup ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff, /usr/sbin/shutdown, /usr/sbin/poweroff";
+const mainsStateLabels: Record<DeviceInput["mains_state"], string> = {
+  online: "Online",
+  on_battery: "On battery",
+  any: "Any mains state",
+};
+const batteryStateLabels: Record<DeviceInput["battery_state"], string> = {
+  charging: "Charging",
+  discharging: "Discharging",
+  full: "Full",
+  any: "Any battery state",
+};
 
 const buildSetupScript = (publicKey: string) => `#!/usr/bin/env bash
 set -euo pipefail
@@ -62,7 +74,7 @@ install -m 440 "\${TEMP_SUDOERS}" /etc/sudoers.d/wattsup
 echo "WattsUp SSH access configured successfully."
 `;
 
-export function ShutdownAutomation() {
+export function ShutdownAutomation({ ups }: { ups: string }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(initialDevice);
   const [notice, setNotice] = useState("");
@@ -78,8 +90,8 @@ export function ShutdownAutomation() {
     percentage: 30,
   });
   const { data: devices = [] } = useQuery({
-    queryKey: ["shutdown-devices"],
-    queryFn: shutdownApi.devices,
+    queryKey: ["shutdown-devices", ups],
+    queryFn: () => shutdownApi.devices(ups),
   });
   const { data: key } = useQuery({
     queryKey: ["shutdown-key"],
@@ -94,7 +106,9 @@ export function ShutdownAutomation() {
   const curlCommand = `curl -fsSL ${setupUrl} | sudo bash`;
 
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["shutdown-devices"] });
+    await queryClient.invalidateQueries({
+      queryKey: ["shutdown-devices", ups],
+    });
     await queryClient.invalidateQueries({ queryKey: ["shutdown-settings"] });
   };
   const act = async (operation: () => Promise<unknown>, success: string) => {
@@ -133,8 +147,8 @@ export function ShutdownAutomation() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     void act(async () => {
-      await shutdownApi.create(form);
-      setForm(initialDevice);
+      await shutdownApi.create({ ...form, ups_name: ups });
+      setForm({ ...initialDevice, ups_name: ups });
     }, "Device added. Trust its host key before testing.");
   };
 
@@ -430,7 +444,8 @@ export function ShutdownAutomation() {
                     {device.username}@{device.host}:{device.port}
                   </p>
                   <p className="mt-1 text-xs text-slate-600">
-                    {device.mains_state} · {device.battery_state} · ≤{" "}
+                    {mainsStateLabels[device.mains_state]} ·{" "}
+                    {batteryStateLabels[device.battery_state]} · ≤{" "}
                     {device.battery_threshold}%
                   </p>
                   {device.host_key_fingerprint && (
@@ -542,6 +557,7 @@ export function ShutdownAutomation() {
             onClick={async () =>
               setResults(
                 await shutdownApi.simulate(
+                  ups,
                   simulation.mains,
                   simulation.battery,
                   simulation.percentage,

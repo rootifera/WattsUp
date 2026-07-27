@@ -104,11 +104,11 @@ function CommandButton({
   );
 }
 
-export function CommandPanel() {
+export function CommandPanel({ ups }: { ups: string }) {
   const [message, setMessage] = useState("");
   const { data = [], isLoading } = useQuery({
-    queryKey: ["commands"],
-    queryFn: getCommands,
+    queryKey: ["commands", ups],
+    queryFn: () => getCommands(ups),
   });
   const mutation = useMutation({
     mutationFn: ({
@@ -117,7 +117,7 @@ export function CommandPanel() {
     }: {
       command: UpsCommand;
       confirmed: boolean;
-    }) => executeCommand(command.name, confirmed),
+    }) => executeCommand(command.name, confirmed, ups),
     onSuccess: (_, { command }) =>
       setMessage(`${friendlyName(command.name)} accepted by NUT.`),
     onError: (error) =>

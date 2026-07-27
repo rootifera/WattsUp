@@ -10,6 +10,7 @@ class RemoteDevice(Base):
     __tablename__ = "remote_devices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ups_name: Mapped[str] = mapped_column(String(255), index=True)
     name: Mapped[str] = mapped_column(String(100))
     host: Mapped[str] = mapped_column(String(255))
     port: Mapped[int] = mapped_column(Integer, default=22)

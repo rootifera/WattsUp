@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from wattsup.core.auth import require_authenticated
 from wattsup.core.config import Settings, get_settings
@@ -19,9 +19,10 @@ def get_nut_client(request: Request) -> NutClient:
 async def get_variables(
     client: Annotated[NutClient, Depends(get_nut_client)],
     settings: Annotated[Settings, Depends(get_settings)],
+    ups: Annotated[str | None, Query()] = None,
 ) -> list[UpsVariable]:
     try:
-        variables = await client.get_variables(settings.ups_name)
+        variables = await client.get_variables(ups or settings.ups_name)
     except NutError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)

@@ -42,7 +42,7 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        await database.create_schema()
+        await database.create_schema(settings.ups_name)
         ssh_service.ensure_key()
         poller.start()
         try:

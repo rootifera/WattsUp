@@ -14,3 +14,4 @@ class HistoryReading(BaseModel):
     input_voltage: float | None
     output_voltage: float | None
     load_percent: float | None
+    ups_name: str

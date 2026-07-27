@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from wattsup.core.auth import require_authenticated
 from wattsup.schemas.shutdown import (
@@ -34,8 +34,10 @@ async def public_key(service: Service) -> dict[str, str]:
 
 
 @router.get("/devices", response_model=list[DeviceOutput])
-async def list_devices(service: Service) -> list[DeviceOutput]:
-    return [DeviceOutput.model_validate(device) for device in await service.list_devices()]
+async def list_devices(
+    service: Service, ups: Annotated[str | None, Query()] = None
+) -> list[DeviceOutput]:
+    return [DeviceOutput.model_validate(device) for device in await service.list_devices(ups)]
 
 
 @router.post("/devices", response_model=DeviceOutput, status_code=status.HTTP_201_CREATED)
@@ -120,5 +122,9 @@ async def update_settings(body: AutomationSettings, service: Service) -> Automat
 
 
 @router.post("/simulate", response_model=list[SimulationResult])
-async def simulate(body: SimulationRequest, service: Service) -> list[SimulationResult]:
-    return await service.simulate(body)
+async def simulate(
+    body: SimulationRequest,
+    service: Service,
+    ups: Annotated[str, Query(min_length=1)],
+) -> list[SimulationResult]:
+    return await service.simulate(body, ups)

@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 
 from wattsup.core.auth import require_authenticated
+from wattsup.core.config import Settings, get_settings
 from wattsup.repositories.readings import ReadingRepository
 from wattsup.schemas.history import HistoryReading
 
@@ -17,8 +18,14 @@ def get_repository(request: Request) -> ReadingRepository:
 @router.get("/history", response_model=list[HistoryReading])
 async def get_history(
     repository: Annotated[ReadingRepository, Depends(get_repository)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    ups: Annotated[str | None, Query()] = None,
     hours: Annotated[int, Query(ge=1, le=24 * 90)] = 24,
     limit: Annotated[int, Query(ge=1, le=10_000)] = 2_880,
 ) -> list[HistoryReading]:
-    readings = await repository.list_since(datetime.now(UTC) - timedelta(hours=hours), limit)
+    readings = await repository.list_since(
+        ups or settings.ups_name,
+        datetime.now(UTC) - timedelta(hours=hours),
+        limit,
+    )
     return [HistoryReading.model_validate(reading) for reading in readings]

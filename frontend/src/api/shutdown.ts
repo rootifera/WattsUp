@@ -2,6 +2,7 @@ import { apiFetch } from "./client";
 
 export interface RemoteDevice {
   id: number;
+  ups_name: string;
   name: string;
   host: string;
   port: number;
@@ -36,7 +37,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const shutdownApi = {
-  devices: () => request<RemoteDevice[]>("/api/shutdown/devices"),
+  devices: (ups: string) =>
+    request<RemoteDevice[]>(
+      `/api/shutdown/devices?ups=${encodeURIComponent(ups)}`,
+    ),
   create: (body: DeviceInput) =>
     request<RemoteDevice>("/api/shutdown/devices", {
       method: "POST",
@@ -71,13 +75,14 @@ export const shutdownApi = {
       body: JSON.stringify({ enabled, dry_run }),
     }),
   simulate: (
+    ups: string,
     mains_state: string,
     battery_state: string,
     battery_percentage: number,
   ) =>
     request<
       { device_id: number; name: string; matches: boolean; reason: string }[]
-    >("/api/shutdown/simulate", {
+    >(`/api/shutdown/simulate?ups=${encodeURIComponent(ups)}`, {
       method: "POST",
       body: JSON.stringify({ mains_state, battery_state, battery_percentage }),
     }),

@@ -97,6 +97,22 @@ class NutClient:
                 else:
                     raise NutProtocolError(f"Unexpected variable response: {response}")
 
+    async def list_ups(self) -> dict[str, str]:
+        async with self._connection() as (reader, writer):
+            response = await self._send(reader, writer, "LIST UPS")
+            if response != "BEGIN LIST UPS":
+                raise NutProtocolError(f"Unexpected response: {response}")
+            units: dict[str, str] = {}
+            while True:
+                response = await self._send_line(reader)
+                if response == "END LIST UPS":
+                    return units
+                parts = shlex.split(response)
+                if len(parts) >= 3 and parts[0] == "UPS":
+                    units[parts[1]] = parts[2]
+                else:
+                    raise NutProtocolError(f"Unexpected UPS response: {response}")
+
     async def get_supported_commands(self, ups_name: str) -> list[str]:
         async with self._connection() as (reader, writer):
             response = await self._send(reader, writer, f"LIST CMD {_quote(ups_name)}")

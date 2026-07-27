@@ -13,6 +13,7 @@ class ReadingRepository:
 
     async def add(self, status: UpsStatus) -> None:
         reading = UpsReading(
+            ups_name=status.ups_name,
             recorded_at=status.last_poll_at,
             status=status.status,
             battery_charge=status.battery_charge,
@@ -26,10 +27,10 @@ class ReadingRepository:
             session.add(reading)
             await session.commit()
 
-    async def list_since(self, since: datetime, limit: int) -> list[UpsReading]:
+    async def list_since(self, ups_name: str, since: datetime, limit: int) -> list[UpsReading]:
         query: Select[tuple[UpsReading]] = (
             select(UpsReading)
-            .where(UpsReading.recorded_at >= since)
+            .where(UpsReading.ups_name == ups_name, UpsReading.recorded_at >= since)
             .order_by(desc(UpsReading.recorded_at))
             .limit(limit)
         )

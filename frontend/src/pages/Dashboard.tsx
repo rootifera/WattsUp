@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { getStatus } from "../api/status";
+import { getStatus, getUpsUnits } from "../api/status";
 import { CommandPanel } from "../components/CommandPanel";
 import { PowerOverview } from "../components/PowerOverview";
 import { UpsDetails } from "../components/UpsDetails";
@@ -105,9 +105,21 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "controls" | "shutdown"
   >("dashboard");
+  const [selectedUps, setSelectedUps] = useState(
+    () => window.localStorage.getItem("wattsup:selected-ups") || "",
+  );
+  const { data: upsUnits = [] } = useQuery({
+    queryKey: ["ups-units"],
+    queryFn: getUpsUnits,
+    refetchInterval: 30_000,
+  });
+  const activeUps = upsUnits.some((unit) => unit.name === selectedUps)
+    ? selectedUps
+    : (upsUnits[0]?.name ?? "");
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["status"],
-    queryFn: getStatus,
+    queryKey: ["status", activeUps],
+    queryFn: () => getStatus(activeUps),
+    enabled: Boolean(activeUps),
     refetchInterval: 5_000,
   });
 
@@ -140,29 +152,60 @@ export function Dashboard({ onLogout }: DashboardProps) {
               {data?.model || "monitor"}
             </p>
           </div>
-          <div className="flex items-center gap-3 rounded-full border border-slate-800 bg-panel px-4 py-2">
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${
-                connected
-                  ? "bg-emerald-400 shadow-[0_0_12px_#34d399]"
-                  : "bg-rose-400"
-              }`}
-            />
-            <span className="text-sm text-slate-300">
-              {isLoading
-                ? "Connecting…"
-                : connected
-                  ? "NUT connected"
-                  : "NUT unavailable"}
-            </span>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="ml-2 border-l border-slate-700 pl-3 text-slate-500 hover:text-white"
-              aria-label="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {upsUnits.length > 0 && (
+              <label className="flex items-center gap-2 rounded-full border border-slate-800 bg-panel px-4 py-2">
+                <span className="text-xs text-slate-500">UPS</span>
+                <select
+                  value={activeUps}
+                  onChange={(event) => {
+                    setSelectedUps(event.target.value);
+                    window.localStorage.setItem(
+                      "wattsup:selected-ups",
+                      event.target.value,
+                    );
+                  }}
+                  className="bg-transparent text-sm text-slate-200 outline-none"
+                  aria-label="Select UPS"
+                >
+                  {upsUnits.map((unit) => (
+                    <option
+                      key={unit.name}
+                      value={unit.name}
+                      className="bg-slate-950"
+                    >
+                      {unit.description
+                        ? `${unit.description} (${unit.name})`
+                        : unit.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <div className="flex items-center gap-3 rounded-full border border-slate-800 bg-panel px-4 py-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  connected
+                    ? "bg-emerald-400 shadow-[0_0_12px_#34d399]"
+                    : "bg-rose-400"
+                }`}
+              />
+              <span className="text-sm text-slate-300">
+                {isLoading
+                  ? "Connecting…"
+                  : connected
+                    ? "NUT connected"
+                    : "NUT unavailable"}
+              </span>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="ml-2 border-l border-slate-700 pl-3 text-slate-500 hover:text-white"
+                aria-label="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -228,12 +271,12 @@ export function Dashboard({ onLogout }: DashboardProps) {
               showInputFrequency={showInputFrequency}
               status={statusLabel}
             />
-            <UpsDetails />
+            <UpsDetails ups={activeUps} />
           </>
         ) : activeTab === "controls" ? (
-          <CommandPanel />
+          <CommandPanel ups={activeUps} />
         ) : (
-          <ShutdownAutomation />
+          <ShutdownAutomation ups={activeUps} />
         )}
 
         <footer className="mt-8 text-xs text-slate-600">
