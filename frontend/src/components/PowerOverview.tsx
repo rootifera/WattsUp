@@ -190,10 +190,15 @@ export function PowerOverview(props: PowerOverviewProps) {
           )}
           {!props.showOutputVoltage && !props.showInputFrequency && (
             <div className="border-t border-slate-800 p-5 sm:border-l md:p-6">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Connection
+              <div className="flex items-center gap-2 text-slate-500">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+                <p className="text-xs font-semibold uppercase tracking-wider">
+                  UPS status
+                </p>
+              </div>
+              <p className="mt-4 text-lg font-semibold text-white">
+                {props.status ?? "Status unavailable"}
               </p>
-              <p className="mt-4 text-sm text-slate-400">Monitoring via NUT</p>
               <p className="mt-1 text-xs text-slate-600">
                 Updates every 5 seconds
               </p>

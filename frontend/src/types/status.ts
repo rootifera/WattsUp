@@ -16,6 +16,7 @@ export interface UpsStatus {
   model: string | null;
   manufacturer: string | null;
   driver: string | null;
+  power_restored: boolean;
   hidden_metrics: {
     output_voltage: boolean;
     input_frequency: boolean;

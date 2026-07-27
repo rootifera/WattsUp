@@ -26,4 +26,5 @@ class UpsStatus(BaseModel):
     model: str | None = None
     manufacturer: str | None = None
     driver: str | None = None
+    power_restored: bool = False
     hidden_metrics: HiddenMetrics = Field(default_factory=HiddenMetrics)

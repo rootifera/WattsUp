@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from wattsup.nut.exceptions import NutError
 from wattsup.nut.protocol import NutClient
@@ -23,6 +23,8 @@ class StatusService:
             "output_voltage": 0,
             "input_frequency": 0,
         }
+        self._was_on_battery: bool | None = None
+        self._power_restored_at: datetime | None = None
 
     async def get_status(self) -> UpsStatus:
         polled_at = datetime.now(UTC)
@@ -38,6 +40,15 @@ class StatusService:
 
         output_voltage = _number(variables, "output.voltage")
         input_frequency = _number(variables, "input.frequency")
+        status_codes = set(variables.get("ups.status", "").split())
+        on_battery = "OB" in status_codes
+        if self._was_on_battery is True and not on_battery:
+            self._power_restored_at = polled_at
+        self._was_on_battery = on_battery
+        power_restored = (
+            self._power_restored_at is not None
+            and polled_at - self._power_restored_at < timedelta(minutes=5)
+        )
         self._record_optional_metric("output_voltage", output_voltage)
         self._record_optional_metric("input_frequency", input_frequency)
 
@@ -58,6 +69,7 @@ class StatusService:
             model=variables.get("ups.model"),
             manufacturer=variables.get("ups.mfr"),
             driver=variables.get("driver.name"),
+            power_restored=power_restored,
             hidden_metrics=HiddenMetrics(
                 output_voltage=(
                     self._missing_optional_metrics["output_voltage"] >= OPTIONAL_METRIC_RETRY_LIMIT

@@ -1,11 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, LogOut, SlidersHorizontal, Zap } from "lucide-react";
+import {
+  LayoutDashboard,
+  LogOut,
+  Power,
+  SlidersHorizontal,
+  Zap,
+} from "lucide-react";
 import { useState } from "react";
 
 import { getStatus } from "../api/status";
 import { CommandPanel } from "../components/CommandPanel";
 import { PowerOverview } from "../components/PowerOverview";
 import { UpsDetails } from "../components/UpsDetails";
+import { ShutdownAutomation } from "./ShutdownAutomation";
 
 const NUT_STATUS_LABELS: Record<string, string> = {
   OL: "Online",
@@ -23,22 +30,81 @@ const NUT_STATUS_LABELS: Record<string, string> = {
   FSD: "Forced shutdown",
 };
 
-const friendlyStatus = (status: string | null | undefined) =>
-  status
-    ? status
-        .split(/\s+/)
-        .map((code) => NUT_STATUS_LABELS[code] ?? code)
-        .join(" · ")
-    : undefined;
+const HEADLINES = {
+  online: [
+    "Keeping the lights on.",
+    "Everything's under control.",
+    "All systems powered.",
+    "Just keep charging.",
+    "Power is good.",
+  ],
+  onBattery: [
+    "I've got a bad feeling about this…",
+    "This is where the fun begins.",
+    "Stay calm.",
+    "Running on borrowed time.",
+    "Battery mode engaged.",
+  ],
+  critical: [
+    "Houston, we've had a problem.",
+    "Hold on to your butts.",
+    "Brace for impact.",
+    "Initiating Plan B.",
+    "Time to say goodnight.",
+  ],
+  restored: [
+    "I'll be back.",
+    "Crisis averted.",
+    "We live to serve another outage.",
+    "Normal service has resumed.",
+  ],
+};
+
+const headlineFor = (
+  status: string | null | undefined,
+  batteryCharge: number | null | undefined,
+  powerRestored: boolean,
+) => {
+  const codes = new Set((status || "").split(/\s+/));
+  let choices = HEADLINES.online;
+  if (codes.has("LB") || (codes.has("OB") && (batteryCharge ?? 100) <= 10)) {
+    choices = HEADLINES.critical;
+  } else if (codes.has("OB")) {
+    choices = HEADLINES.onBattery;
+  } else if (powerRestored) {
+    choices = HEADLINES.restored;
+  }
+  return choices[Math.floor(batteryCharge ?? 0) % choices.length];
+};
+
+const friendlyStatus = (
+  status: string | null | undefined,
+  batteryCharge: number | null | undefined,
+) => {
+  if (!status) return undefined;
+  const codes = status.split(/\s+/);
+  const labels = codes.map((code) => NUT_STATUS_LABELS[code] ?? code);
+  if (
+    codes.includes("OL") &&
+    !codes.includes("CHRG") &&
+    !codes.includes("DISCHRG") &&
+    batteryCharge !== null &&
+    batteryCharge !== undefined &&
+    batteryCharge >= 100
+  ) {
+    labels.push("Battery full");
+  }
+  return labels.join(" · ");
+};
 
 interface DashboardProps {
   onLogout: () => void;
 }
 
 export function Dashboard({ onLogout }: DashboardProps) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "controls">(
-    "dashboard",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "controls" | "shutdown"
+  >("dashboard");
   const { data, isLoading, isError } = useQuery({
     queryKey: ["status"],
     queryFn: getStatus,
@@ -48,7 +114,12 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const connected = data?.connected ?? false;
   const showOutputVoltage = !data?.hidden_metrics.output_voltage;
   const showInputFrequency = !data?.hidden_metrics.input_frequency;
-  const statusLabel = friendlyStatus(data?.status);
+  const statusLabel = friendlyStatus(data?.status, data?.battery_charge);
+  const headline = headlineFor(
+    data?.status,
+    data?.battery_charge,
+    data?.power_restored ?? false,
+  );
 
   return (
     <main className="min-h-screen bg-ink px-5 py-8 text-slate-100 md:px-10">
@@ -62,7 +133,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
               <span className="font-semibold tracking-wide">WATTSUP</span>
             </div>
             <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-              Power at a glance.
+              {headline}
             </h1>
             <p className="mt-2 text-slate-400">
               {data?.manufacturer || "Network UPS Tools"}{" "}
@@ -121,6 +192,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
               label: "UPS controls",
               icon: SlidersHorizontal,
             },
+            {
+              id: "shutdown" as const,
+              label: "Shutdown automation",
+              icon: Power,
+            },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -154,8 +230,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
             />
             <UpsDetails />
           </>
-        ) : (
+        ) : activeTab === "controls" ? (
           <CommandPanel />
+        ) : (
+          <ShutdownAutomation />
         )}
 
         <footer className="mt-8 text-xs text-slate-600">

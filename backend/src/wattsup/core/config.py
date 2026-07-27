@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     admin_password: str = Field(min_length=12)
     jwt_secret: str = Field(min_length=32)
     jwt_expiry_hours: int = Field(default=12, ge=1, le=24 * 30)
+    ssh_key_path: Path = Path("/data/ssh/id_ed25519")
 
     frontend_dist: Path = Path("frontend/dist")
 
