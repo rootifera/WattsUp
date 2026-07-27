@@ -1,0 +1,22 @@
+services:
+  wattsup:
+    build: .
+    container_name: wattsup
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/wattsup.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - wattsup-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  wattsup-data:
+
