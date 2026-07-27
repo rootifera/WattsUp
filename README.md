@@ -55,6 +55,7 @@ NUT_USERNAME=
 NUT_PASSWORD=
 NUT_TIMEOUT_SECONDS=5
 POLL_INTERVAL_SECONDS=30
+WEB_PORT=8000
 
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace-with-a-long-random-password
@@ -74,8 +75,11 @@ Build and start WattsUp:
 docker compose up -d --build
 ```
 
-Open <http://localhost:8000>. API documentation is available at
-<http://localhost:8000/api/docs>.
+`WEB_PORT` controls the port published on the Docker host. For example, set
+`WEB_PORT=8787` to open WattsUp at <http://localhost:8787>. API documentation is then available at
+<http://localhost:8787/api/docs>.
+
+The container continues listening on port `8000` internally, regardless of `WEB_PORT`.
 
 The container runs as an unprivileged user with Linux capabilities removed. SQLite data and the
 generated SSH keypair are stored in the `wattsup-data` Docker volume.
@@ -219,7 +223,8 @@ After running it:
 ## Reverse proxy
 
 WattsUp works behind a reverse proxy such as BunkerWeb, Caddy, Traefik, or NGINX. Proxy the domain
-root to port `8000` without changing request paths. The following paths must all reach WattsUp:
+root to the configured `WEB_PORT` when the proxy runs on the Docker host, without changing request
+paths. The following paths must all reach WattsUp:
 
 ```text
 /
@@ -239,7 +244,7 @@ If the reverse proxy adds another authentication layer, exempt `/adduser.sh` or 
 will download an authentication page instead of the shell script. TLS is strongly recommended.
 
 When BunkerWeb and WattsUp are containers on a shared Docker network, use the WattsUp service name
-as the upstream:
+and internal port as the upstream. `WEB_PORT` does not change container-to-container traffic:
 
 ```text
 REVERSE_PROXY_URL=/
