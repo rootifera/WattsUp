@@ -3,7 +3,13 @@ set -Eeuo pipefail
 
 REPOSITORY="${WATTSUP_REPOSITORY:-https://github.com/rootifera/WattsUp.git}"
 BRANCH="${WATTSUP_BRANCH:-main}"
-INSTALL_DIR="${WATTSUP_DIR:-/opt/wattsup}"
+if [[ -n "${WATTSUP_DIR:-}" ]]; then
+  INSTALL_DIR="${WATTSUP_DIR}"
+elif [[ -f "${PWD}/.env" ]]; then
+  INSTALL_DIR="${PWD}"
+else
+  INSTALL_DIR="/opt/wattsup"
+fi
 ENV_FILE="${INSTALL_DIR}/.env"
 
 log() {
@@ -31,6 +37,10 @@ ensure_setting() {
   fi
 }
 
+git_in_installation() {
+  git -c "safe.directory=${INSTALL_DIR}" "$@"
+}
+
 require_command git
 require_command docker
 require_command openssl
@@ -42,13 +52,13 @@ created_config=false
 if [[ -d "${INSTALL_DIR}/.git" ]]; then
   log "existing installation found in ${INSTALL_DIR}"
   cd "${INSTALL_DIR}"
-  if [[ -n "$(git status --porcelain)" ]]; then
+  if [[ -n "$(git_in_installation status --porcelain)" ]]; then
     fail "the installation has local source changes; commit or remove them before updating"
   fi
   log "fetching ${BRANCH}"
-  git fetch --prune origin "${BRANCH}"
-  git checkout "${BRANCH}"
-  git merge --ff-only "origin/${BRANCH}"
+  git_in_installation fetch --prune origin "${BRANCH}"
+  git_in_installation checkout "${BRANCH}"
+  git_in_installation merge --ff-only "origin/${BRANCH}"
 elif [[ -e "${INSTALL_DIR}" && -n "$(find "${INSTALL_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
   fail "${INSTALL_DIR} exists and is not an empty WattsUp checkout"
 else
@@ -81,8 +91,15 @@ fi
 
 log "pulling service images"
 docker compose pull postgres
-log "building and starting WattsUp"
-docker compose up -d --build --remove-orphans --wait
+log "building WattsUp"
+docker compose build wattsup
+log "starting PostgreSQL"
+docker compose up -d postgres --wait
+log "applying database migrations"
+docker compose run --rm --no-deps --entrypoint alembic wattsup \
+  -c /app/backend/alembic.ini upgrade head
+log "starting WattsUp"
+docker compose up -d --remove-orphans --wait
 
 web_port="$(sed -n 's/^WEB_PORT=//p' "${ENV_FILE}" | tail -n 1)"
 web_port="${web_port:-8000}"

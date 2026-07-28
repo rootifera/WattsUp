@@ -49,7 +49,11 @@ installation URL and setup token.
 
 Run the same command later to update. It fast-forwards the checkout to the latest `main`, preserves
 `.env` and the PostgreSQL/SSH Docker volumes, adds newly required environment settings, rebuilds,
-and waits for a healthy deployment. It refuses to overwrite a checkout containing local changes.
+applies all pending Alembic migrations, and waits for a healthy deployment. It refuses to overwrite
+a checkout containing local changes.
+
+When the command is run from a directory containing `.env`, that directory is treated as the
+existing installation automatically. It will not clone another copy into `/opt/wattsup`.
 
 Optional overrides can be passed through `sudo env`:
 

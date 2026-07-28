@@ -14,6 +14,8 @@ WORKDIR /app
 RUN groupadd --system wattsup && useradd --system --gid wattsup --home-dir /app wattsup
 COPY backend/pyproject.toml ./backend/
 COPY backend/src ./backend/src
+COPY backend/alembic.ini ./backend/
+COPY backend/migrations ./backend/migrations
 RUN pip install --no-cache-dir ./backend
 COPY --from=frontend /build/frontend/dist ./frontend/dist
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint
