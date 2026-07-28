@@ -44,8 +44,8 @@ curl -fsSL https://raw.githubusercontent.com/rootifera/WattsUp/main/deploy.sh | 
 ```
 
 The script installs WattsUp in `/opt/wattsup`, creates a private `.env` with random database, JWT,
-and first-run setup secrets, builds the stack, waits for healthy containers, and prints the
-installation URL and setup token.
+and first-run setup secrets, builds the stack, applies the Alembic database migrations, waits for
+healthy containers, and prints the installation URL and setup token.
 
 Run the same command later to update. It fast-forwards the checkout to the latest `main`, preserves
 `.env` and the PostgreSQL/SSH Docker volumes, adds newly required environment settings, rebuilds,
@@ -78,10 +78,14 @@ JWT_SECRET=replace-with-at-least-32-random-characters
 SETUP_TOKEN=replace-with-a-random-first-run-token
 ```
 
-Start the PostgreSQL and WattsUp containers:
+Build WattsUp, start PostgreSQL, apply migrations, and start the application:
 
 ```shell
-docker compose up -d --build
+docker compose build wattsup
+docker compose up -d postgres --wait
+docker compose run --rm --no-deps --entrypoint alembic wattsup \
+  -c /app/backend/alembic.ini upgrade head
+docker compose up -d --remove-orphans --wait
 ```
 
 Open `http://localhost:8000`, or the port selected by `WEB_PORT`. A blank database presents the
@@ -145,12 +149,28 @@ revenue-grade measurements.
 
 ## Notifications
 
-Notification channels are configured in **Admin** and can be tested before use:
+Notification channels are configured in **Admin**:
 
 - SMTP email
 - Gotify
 - Pushover
 - Generic JSON webhook
+
+SMTP supports authenticated delivery with a username and password or app password. Connection
+security can be set to STARTTLS, direct SSL/TLS, or none. Sender and recipient addresses are
+configured independently.
+
+Each channel can subscribe to any combination of:
+
+- Running on battery
+- Power restored
+- Low battery
+- UPS or NUT server unreachable
+- Connection restored
+
+The add-channel form can send a real test using the entered settings without saving them. Saved
+channels can also be tested, paused, re-enabled, removed, or given different event selections.
+Delivery results and configuration errors appear within the channel or form they belong to.
 
 Channel secrets are encrypted in PostgreSQL using a key derived from `JWT_SECRET` and are not
 returned to the browser after saving. State-change notifications are deduplicated rather than sent
