@@ -21,6 +21,8 @@ class UpsStatus(BaseModel):
     input_voltage: float | None = None
     output_voltage: float | None = None
     input_frequency: float | None = None
+    power_watts: float | None = None
+    power_source: str | None = None
     battery_date: str | None = None
     battery_test_result: str | None = None
     model: str | None = None

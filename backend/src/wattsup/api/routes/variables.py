@@ -3,26 +3,20 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from wattsup.core.auth import require_authenticated
-from wattsup.core.config import Settings, get_settings
 from wattsup.nut.exceptions import NutError
-from wattsup.nut.protocol import NutClient
 from wattsup.schemas.variables import UpsVariable
+from wattsup.services.ups import UpsManager
 
 router = APIRouter(tags=["UPS"], dependencies=[Depends(require_authenticated)])
 
 
-def get_nut_client(request: Request) -> NutClient:
-    return request.app.state.nut_client  # type: ignore[no-any-return]
-
-
 @router.get("/variables", response_model=list[UpsVariable])
-async def get_variables(
-    client: Annotated[NutClient, Depends(get_nut_client)],
-    settings: Annotated[Settings, Depends(get_settings)],
-    ups: Annotated[str | None, Query()] = None,
-) -> list[UpsVariable]:
+async def get_variables(request: Request, ups: Annotated[int, Query()]) -> list[UpsVariable]:
+    manager: UpsManager = request.app.state.ups_manager
     try:
-        variables = await client.get_variables(ups or settings.ups_name)
+        variables = await manager.variables(ups)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
     except NutError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)

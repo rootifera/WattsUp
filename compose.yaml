@@ -1,4 +1,19 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wattsup
+      POSTGRES_USER: wattsup
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-wattsup}
+    volumes:
+      - wattsup-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wattsup -d wattsup"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   wattsup:
     build: .
     container_name: wattsup
@@ -7,7 +22,10 @@ services:
       - path: .env
         required: false
     environment:
-      DATABASE_URL: sqlite+aiosqlite:////data/wattsup.db
+      DATABASE_URL: postgresql+asyncpg://wattsup:${DATABASE_PASSWORD:-wattsup}@postgres:5432/wattsup
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${WEB_PORT:-8000}:8000"
     volumes:
@@ -19,3 +37,4 @@ services:
 
 volumes:
   wattsup-data:
+  wattsup-postgres:

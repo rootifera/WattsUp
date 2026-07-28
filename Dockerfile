@@ -8,7 +8,7 @@ RUN npm run build
 FROM python:3.13-slim AS runtime
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    DATABASE_URL=sqlite+aiosqlite:////data/wattsup.db \
+    DATABASE_URL=postgresql+asyncpg://wattsup:wattsup@postgres:5432/wattsup \
     FRONTEND_DIST=/app/frontend/dist
 WORKDIR /app
 RUN groupadd --system wattsup && useradd --system --gid wattsup --home-dir /app wattsup

@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 
 from wattsup.repositories.readings import ReadingRepository
 from wattsup.schemas.status import UpsStatus
-from wattsup.services.status import StatusService
+from wattsup.services.ups import UpsManager
 
 logger = logging.getLogger(__name__)
 
@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 class Poller:
     def __init__(
         self,
-        status_service: StatusService,
+        ups_manager: UpsManager,
         repository: ReadingRepository,
         interval_seconds: int,
         on_status: Callable[[UpsStatus], Awaitable[None]] | None = None,
     ) -> None:
-        self.status_service = status_service
+        self.ups_manager = ups_manager
         self.repository = repository
         self.interval_seconds = interval_seconds
         self.on_status = on_status
@@ -38,13 +38,14 @@ class Poller:
     async def _run(self) -> None:
         while True:
             try:
-                units = await self.status_service.client.list_ups()
-                for ups_name in units:
-                    status = await self.status_service.get_status(ups_name)
+                await self.ups_manager.discover()
+                units = await self.ups_manager.list_units()
+                for unit in units:
+                    status = await self.ups_manager.status(unit.id)
                     if status.connected:
                         await self.repository.add(status)
-                        if self.on_status is not None:
-                            await self.on_status(status)
+                    if self.on_status is not None:
+                        await self.on_status(status)
             except Exception:
                 logger.exception("UPS polling failed")
             await asyncio.sleep(self.interval_seconds)

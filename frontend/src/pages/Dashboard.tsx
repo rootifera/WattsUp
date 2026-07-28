@@ -4,6 +4,7 @@ import {
   LogOut,
   Power,
   SlidersHorizontal,
+  Settings,
   Zap,
 } from "lucide-react";
 import { useState } from "react";
@@ -12,7 +13,9 @@ import { getStatus, getUpsUnits } from "../api/status";
 import { CommandPanel } from "../components/CommandPanel";
 import { PowerOverview } from "../components/PowerOverview";
 import { UpsDetails } from "../components/UpsDetails";
+import { EnergyPanel } from "../components/EnergyPanel";
 import { ShutdownAutomation } from "./ShutdownAutomation";
+import { Admin } from "./Admin";
 
 const NUT_STATUS_LABELS: Record<string, string> = {
   OL: "Online",
@@ -103,7 +106,7 @@ interface DashboardProps {
 
 export function Dashboard({ onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "controls" | "shutdown"
+    "dashboard" | "controls" | "shutdown" | "admin"
   >("dashboard");
   const [selectedUps, setSelectedUps] = useState(
     () => window.localStorage.getItem("wattsup:selected-ups") || "",
@@ -240,6 +243,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
               label: "Shutdown automation",
               icon: Power,
             },
+            { id: "admin" as const, label: "Admin", icon: Settings },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -271,12 +275,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
               showInputFrequency={showInputFrequency}
               status={statusLabel}
             />
+            <EnergyPanel ups={activeUps} />
             <UpsDetails ups={activeUps} />
           </>
         ) : activeTab === "controls" ? (
           <CommandPanel ups={activeUps} />
-        ) : (
+        ) : activeTab === "shutdown" ? (
           <ShutdownAutomation ups={activeUps} />
+        ) : (
+          <Admin />
         )}
 
         <footer className="mt-8 text-xs text-slate-600">

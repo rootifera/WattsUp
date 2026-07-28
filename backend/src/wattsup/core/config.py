@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     app_name: str = "WattsUp"
     api_prefix: str = "/api"
     debug: bool = False
-    database_url: str = "sqlite+aiosqlite:///./data/wattsup.db"
+    database_url: str = "postgresql+asyncpg://wattsup:wattsup@postgres:5432/wattsup"
 
     nut_host: str = "127.0.0.1"
     nut_port: int = Field(default=3493, ge=1, le=65535)
@@ -25,10 +25,9 @@ class Settings(BaseSettings):
     nut_timeout_seconds: float = Field(default=5.0, gt=0)
     poll_interval_seconds: int = Field(default=30, ge=5)
 
-    admin_username: str = "admin"
-    admin_password: str = Field(min_length=12)
     jwt_secret: str = Field(min_length=32)
     jwt_expiry_hours: int = Field(default=12, ge=1, le=24 * 30)
+    setup_token: str = Field(min_length=16)
     ssh_key_path: Path = Path("/data/ssh/id_ed25519")
 
     frontend_dist: Path = Path("frontend/dist")

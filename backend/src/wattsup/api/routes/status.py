@@ -1,34 +1,37 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from wattsup.api.dependencies import StatusServiceDependency
 from wattsup.core.auth import require_authenticated
-from wattsup.core.config import Settings, get_settings
-from wattsup.nut.exceptions import NutError
-from wattsup.nut.protocol import NutClient
 from wattsup.schemas.status import UpsStatus
+from wattsup.services.ups import UpsManager
 
 router = APIRouter(tags=["UPS"], dependencies=[Depends(require_authenticated)])
 
 
+def manager(request: Request) -> UpsManager:
+    return request.app.state.ups_manager  # type: ignore[no-any-return]
+
+
 @router.get("/ups")
-async def list_ups(
-    request: Request, settings: Annotated[Settings, Depends(get_settings)]
-) -> list[dict[str, str]]:
-    client: NutClient = request.app.state.nut_client
-    try:
-        units = await client.list_ups()
-    except NutError:
-        units = {settings.ups_name: settings.ups_name}
-    if not units:
-        units = {settings.ups_name: settings.ups_name}
-    return [{"name": name, "description": description} for name, description in units.items()]
+async def list_ups(request: Request) -> list[dict[str, str | int]]:
+    units = await manager(request).list_units()
+    return [
+        {
+            "id": unit.id,
+            "name": str(unit.id),
+            "description": f"{unit.server_name} · {unit.name}",
+        }
+        for unit in units
+    ]
 
 
 @router.get("/status", response_model=UpsStatus)
 async def get_status(
-    service: StatusServiceDependency,
-    ups: Annotated[str | None, Query()] = None,
+    request: Request,
+    ups: Annotated[int, Query()],
 ) -> UpsStatus:
-    return await service.get_status(ups)
+    try:
+        return await manager(request).status(ups)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error

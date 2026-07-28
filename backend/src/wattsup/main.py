@@ -8,36 +8,36 @@ from fastapi.staticfiles import StaticFiles
 
 from wattsup.api.router import api_router
 from wattsup.core.config import get_settings
+from wattsup.core.secrets import SecretBox
 from wattsup.database.session import Database
 from wattsup.models import UpsReading  # noqa: F401
-from wattsup.nut.protocol import NutClient
 from wattsup.repositories.readings import ReadingRepository
-from wattsup.services.commands import CommandService
+from wattsup.schemas.status import UpsStatus
+from wattsup.services.notifications import NotificationDispatcher
 from wattsup.services.poller import Poller
 from wattsup.services.shutdown import ShutdownService
-from wattsup.services.status import StatusService
+from wattsup.services.ups import UpsManager
 from wattsup.shutdown.ssh import SshService
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     database = Database(settings)
-    client = NutClient(
-        settings.nut_host,
-        settings.nut_port,
-        username=settings.nut_username,
-        password=settings.nut_password,
-        timeout=settings.nut_timeout_seconds,
-    )
-    status_service = StatusService(client, settings.ups_name)
     ssh_service = SshService(settings.ssh_key_path)
     shutdown_service = ShutdownService(database.sessions, ssh_service)
     reading_repository = ReadingRepository(database.sessions)
+    ups_manager = UpsManager(database.sessions, SecretBox(settings.jwt_secret))
+    notifier = NotificationDispatcher(database.sessions, SecretBox(settings.jwt_secret))
+
+    async def status_observed(value: UpsStatus) -> None:
+        await notifier.evaluate(value)
+        await shutdown_service.evaluate_status(value)
+
     poller = Poller(
-        status_service,
+        ups_manager,
         reading_repository,
         settings.poll_interval_seconds,
-        on_status=shutdown_service.evaluate_status,
+        on_status=status_observed,
     )
 
     @asynccontextmanager
@@ -65,9 +65,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.state.status_service = status_service
-    app.state.nut_client = client
-    app.state.command_service = CommandService(client, settings.ups_name)
+    app.state.database = database
+    app.state.ups_manager = ups_manager
     app.state.reading_repository = reading_repository
     app.state.shutdown_service = shutdown_service
     app.include_router(api_router, prefix=settings.api_prefix)

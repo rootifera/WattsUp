@@ -21,3 +21,5 @@ class UpsReading(Base):
     input_voltage: Mapped[float | None] = mapped_column(Float)
     output_voltage: Mapped[float | None] = mapped_column(Float)
     load_percent: Mapped[float | None] = mapped_column(Float)
+    power_watts: Mapped[float | None] = mapped_column(Float)
+    power_source: Mapped[str | None] = mapped_column(String(20))

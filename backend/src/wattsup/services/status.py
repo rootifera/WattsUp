@@ -38,6 +38,14 @@ class StatusService:
 
         output_voltage = _number(variables, "output.voltage")
         input_frequency = _number(variables, "input.frequency")
+        measured_power = _number(variables, "ups.realpower")
+        nominal_power = _number(variables, "ups.realpower.nominal")
+        load_percent = _number(variables, "ups.load")
+        power_watts = measured_power
+        power_source = "measured" if measured_power is not None else None
+        if power_watts is None and nominal_power is not None and load_percent is not None:
+            power_watts = nominal_power * load_percent / 100
+            power_source = "estimated"
         status_codes = set(variables.get("ups.status", "").split())
         on_battery = "OB" in status_codes
         if self._was_on_battery.get(ups_name) is True and not on_battery:
@@ -59,10 +67,12 @@ class StatusService:
             battery_charge=_number(variables, "battery.charge"),
             battery_voltage=_number(variables, "battery.voltage"),
             runtime_seconds=_number(variables, "battery.runtime"),
-            load_percent=_number(variables, "ups.load"),
+            load_percent=load_percent,
             input_voltage=_number(variables, "input.voltage"),
             output_voltage=output_voltage,
             input_frequency=input_frequency,
+            power_watts=power_watts,
+            power_source=power_source,
             battery_date=variables.get("battery.date") or variables.get("battery.mfr.date"),
             battery_test_result=variables.get("ups.test.result"),
             model=variables.get("ups.model"),

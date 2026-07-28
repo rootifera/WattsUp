@@ -11,6 +11,8 @@ export interface UpsStatus {
   input_voltage: number | null;
   output_voltage: number | null;
   input_frequency: number | null;
+  power_watts: number | null;
+  power_source: "measured" | "estimated" | null;
   battery_date: string | null;
   battery_test_result: string | null;
   model: string | null;
