@@ -18,7 +18,7 @@ export function Admin() {
     queryKey: ["notification-channels"],
     queryFn: adminApi.channels,
   });
-  const [notice, setNotice] = useState("");
+  const [serverNotice, setServerNotice] = useState("");
   const [server, setServer] = useState({
     name: "",
     host: "",
@@ -32,10 +32,10 @@ export function Admin() {
   const act = async (operation: () => Promise<unknown>, success = "Saved.") => {
     try {
       await operation();
-      setNotice(success);
+      setServerNotice(success);
       await client.invalidateQueries();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Action failed");
+      setServerNotice(error instanceof Error ? error.message : "Action failed");
     }
   };
   const addServer = (event: FormEvent) => {
@@ -51,15 +51,15 @@ export function Admin() {
           NUT servers, UPS names, tariffs and notifications.
         </p>
       </header>
-      {notice && (
-        <p className="rounded-xl border border-slate-800 bg-panel p-3 text-sm">
-          {notice}
-        </p>
-      )}
       <section className="rounded-2xl border border-slate-800 bg-panel p-5">
         <h3 className="flex items-center gap-2 font-medium">
           <Server className="h-4 w-4 text-cyan-300" /> NUT servers
         </h3>
+        {serverNotice && (
+          <p className="mt-4 rounded-lg bg-slate-950/60 px-3 py-2 text-xs text-slate-300">
+            {serverNotice}
+          </p>
+        )}
         <div className="mt-4 space-y-4">
           {servers.map((item) => (
             <div
@@ -174,7 +174,7 @@ export function Admin() {
           </form>
         </details>
       </section>
-      <NotificationsPanel channels={channels} act={act} />
+      <NotificationsPanel channels={channels} />
     </section>
   );
 }

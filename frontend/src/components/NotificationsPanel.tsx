@@ -7,6 +7,7 @@ import {
   Trash2,
   Webhook,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { adminApi, type NotificationChannel } from "../api/admin";
@@ -86,12 +87,29 @@ const initialForm = {
 
 export function NotificationsPanel({
   channels,
-  act,
 }: {
   channels: NotificationChannel[];
-  act: (operation: () => Promise<unknown>, success?: string) => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState(initialForm);
+  const [formNotice, setFormNotice] = useState("");
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
+  const runForm = async (
+    operation: () => Promise<unknown>,
+    success: string,
+  ) => {
+    setFormNotice("");
+    try {
+      await operation();
+      setFormNotice(success);
+      await refresh();
+    } catch (error) {
+      setFormNotice(
+        error instanceof Error ? error.message : "Notification action failed",
+      );
+    }
+  };
 
   const channelBody = () => {
     const configuration =
@@ -121,7 +139,7 @@ export function NotificationsPanel({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    void act(async () => {
+    void runForm(async () => {
       await adminApi.addChannel(channelBody());
       setForm(initialForm);
     }, "Notification channel added.");
@@ -150,7 +168,7 @@ export function NotificationsPanel({
           </p>
         )}
         {channels.map((channel) => (
-          <ChannelCard key={channel.id} channel={channel} act={act} />
+          <ChannelCard key={channel.id} channel={channel} refresh={refresh} />
         ))}
 
         <details className="overflow-hidden rounded-xl border border-slate-800">
@@ -248,7 +266,7 @@ export function NotificationsPanel({
                   type="button"
                   onClick={(event) => {
                     if (!event.currentTarget.form?.reportValidity()) return;
-                    void act(
+                    void runForm(
                       () => adminApi.testChannelConfiguration(channelBody()),
                       "Test notification sent.",
                     );
@@ -262,6 +280,11 @@ export function NotificationsPanel({
                 </button>
               </div>
             </div>
+            {formNotice && (
+              <p className="rounded-lg bg-slate-950/60 px-3 py-2 text-xs text-slate-300">
+                {formNotice}
+              </p>
+            )}
           </form>
         </details>
       </div>
@@ -271,15 +294,28 @@ export function NotificationsPanel({
 
 function ChannelCard({
   channel,
-  act,
+  refresh,
 }: {
   channel: NotificationChannel;
-  act: (operation: () => Promise<unknown>, success?: string) => Promise<void>;
+  refresh: () => Promise<unknown>;
 }) {
   const meta = kinds[channel.kind];
   const Icon = meta.icon;
+  const [notice, setNotice] = useState("");
+  const run = async (operation: () => Promise<unknown>, success: string) => {
+    setNotice("");
+    try {
+      await operation();
+      setNotice(success);
+      await refresh();
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Notification action failed",
+      );
+    }
+  };
   const update = (changes: Partial<NotificationChannel>) =>
-    act(
+    run(
       () =>
         adminApi.updateChannel(channel.id, {
           name: channel.name,
@@ -338,7 +374,7 @@ function ChannelCard({
           <button
             type="button"
             onClick={() =>
-              void act(
+              void run(
                 () => adminApi.testChannel(channel.id),
                 "Test notification sent.",
               )
@@ -352,7 +388,7 @@ function ChannelCard({
             aria-label={`Remove ${channel.name}`}
             onClick={() => {
               if (window.confirm(`Remove ${channel.name}?`)) {
-                void act(
+                void run(
                   () => adminApi.removeChannel(channel.id),
                   "Notification channel removed.",
                 );
@@ -364,6 +400,11 @@ function ChannelCard({
           </button>
         </div>
       </div>
+      {notice && (
+        <p className="mt-3 rounded-lg bg-slate-950/60 px-3 py-2 text-xs text-slate-300">
+          {notice}
+        </p>
+      )}
       <details className="mt-3 border-t border-slate-800 pt-3">
         <summary className="cursor-pointer text-xs text-slate-500">
           Change notification events
