@@ -25,8 +25,10 @@ def _send(kind: str, config: dict[str, Any], title: str, message: str) -> None:
         email["From"] = config["from"]
         email["To"] = config["to"]
         email.set_content(message)
-        with smtplib.SMTP(config["host"], int(config.get("port", 587)), timeout=10) as client:
-            if config.get("starttls", True):
+        security = config.get("security", "starttls")
+        smtp_class = smtplib.SMTP_SSL if security == "ssl" else smtplib.SMTP
+        with smtp_class(config["host"], int(config.get("port", 587)), timeout=10) as client:
+            if security == "starttls":
                 client.starttls()
             if config.get("username"):
                 client.login(config["username"], config.get("password", ""))

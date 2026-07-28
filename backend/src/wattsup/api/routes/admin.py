@@ -2,7 +2,7 @@ import json
 from decimal import Decimal
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -46,6 +46,24 @@ class ChannelInput(BaseModel):
     enabled: bool = False
     configuration: dict[str, Any]
     events: list[str] = []
+
+
+SECRET_FIELDS = {"password", "token"}
+
+
+def channel_output(channel: NotificationChannel) -> dict[str, Any]:
+    configuration = json.loads(box().decrypt(channel.configuration_encrypted) or "{}")
+    return {
+        "id": channel.id,
+        "name": channel.name,
+        "kind": channel.kind,
+        "enabled": channel.enabled,
+        "configuration": {
+            key: value for key, value in configuration.items() if key not in SECRET_FIELDS
+        },
+        "has_secret": any(configuration.get(key) for key in SECRET_FIELDS),
+        "events": channel.events.split(",") if channel.events else [],
+    }
 
 
 def box() -> SecretBox:
@@ -150,17 +168,7 @@ async def update_ups(ups_id: int, body: UpsUpdate, request: Request) -> dict[str
 async def channels(request: Request) -> list[dict[str, Any]]:
     async with request.app.state.database.sessions() as session:
         values = (await session.scalars(select(NotificationChannel))).all()
-    return [
-        {
-            "id": channel.id,
-            "name": channel.name,
-            "kind": channel.kind,
-            "enabled": channel.enabled,
-            "configuration": {},
-            "events": channel.events.split(",") if channel.events else [],
-        }
-        for channel in values
-    ]
+    return [channel_output(channel) for channel in values]
 
 
 @router.post("/notifications", status_code=status.HTTP_201_CREATED)
@@ -177,6 +185,38 @@ async def add_channel(body: ChannelInput, request: Request) -> dict[str, int]:
         await session.commit()
         await session.refresh(channel)
     return {"id": channel.id}
+
+
+@router.put("/notifications/{channel_id}")
+async def update_channel(channel_id: int, body: ChannelInput, request: Request) -> dict[str, str]:
+    secret_box = box()
+    async with request.app.state.database.sessions() as session:
+        channel = await session.get(NotificationChannel, channel_id)
+        if channel is None:
+            raise HTTPException(status_code=404, detail="Notification channel not found")
+        existing = json.loads(secret_box.decrypt(channel.configuration_encrypted) or "{}")
+        configuration = {
+            **existing,
+            **{key: value for key, value in body.configuration.items() if value not in ("", None)},
+        }
+        channel.name = body.name
+        channel.kind = body.kind
+        channel.enabled = body.enabled
+        channel.configuration_encrypted = secret_box.encrypt(json.dumps(configuration)) or ""
+        channel.events = ",".join(body.events)
+        await session.commit()
+    return {"message": "Notification channel updated"}
+
+
+@router.delete("/notifications/{channel_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_channel(channel_id: int, request: Request) -> Response:
+    async with request.app.state.database.sessions() as session:
+        channel = await session.get(NotificationChannel, channel_id)
+        if channel is None:
+            raise HTTPException(status_code=404, detail="Notification channel not found")
+        await session.delete(channel)
+        await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/notifications/{channel_id}/test")

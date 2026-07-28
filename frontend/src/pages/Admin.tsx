@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, Plus, Server } from "lucide-react";
+import { Plus, Server } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { adminApi } from "../api/admin";
+import { NotificationsPanel } from "../components/NotificationsPanel";
 
 const field =
   "rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm outline-none focus:border-cyan-800";
@@ -27,22 +28,11 @@ export function Admin() {
     currency: "GBP",
     price_per_kwh: 0.25,
   });
-  const [channel, setChannel] = useState({
-    name: "",
-    kind: "gotify",
-    url: "",
-    token: "",
-    user: "",
-    to: "",
-    from: "",
-    host: "",
-    port: 587,
-  });
 
-  const act = async (operation: () => Promise<unknown>) => {
+  const act = async (operation: () => Promise<unknown>, success = "Saved.") => {
     try {
       await operation();
-      setNotice("Saved.");
+      setNotice(success);
       await client.invalidateQueries();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Action failed");
@@ -51,40 +41,6 @@ export function Admin() {
   const addServer = (event: FormEvent) => {
     event.preventDefault();
     void act(() => adminApi.addServer(server));
-  };
-  const addChannel = (event: FormEvent) => {
-    event.preventDefault();
-    const configuration =
-      channel.kind === "smtp"
-        ? {
-            host: channel.host,
-            port: channel.port,
-            from: channel.from,
-            to: channel.to,
-            username: channel.user,
-            password: channel.token,
-            starttls: true,
-          }
-        : channel.kind === "pushover"
-          ? { token: channel.token, user: channel.user }
-          : { url: channel.url, token: channel.token };
-    void act(() =>
-      adminApi.addChannel({
-        name: channel.name,
-        kind: channel.kind,
-        enabled: true,
-        configuration,
-        events: [
-          "on_battery",
-          "power_restored",
-          "low_battery",
-          "unreachable",
-          "reconnected",
-          "test_result",
-          "shutdown_result",
-        ],
-      }),
-    );
   };
 
   return (
@@ -218,122 +174,7 @@ export function Admin() {
           </form>
         </details>
       </section>
-      <section className="rounded-2xl border border-slate-800 bg-panel p-5">
-        <h3 className="flex items-center gap-2 font-medium">
-          <Bell className="h-4 w-4 text-cyan-300" /> Notifications
-        </h3>
-        <div className="mt-3 space-y-2">
-          {channels.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between rounded-xl border border-slate-800 p-3"
-            >
-              <span>
-                <span className="font-medium">{item.name}</span>
-                <span className="ml-2 text-xs uppercase text-slate-500">
-                  {item.kind}
-                </span>
-              </span>
-              <button
-                onClick={() => void act(() => adminApi.testChannel(item.id))}
-                className="rounded-lg border border-cyan-900 px-3 py-2 text-xs text-cyan-300"
-              >
-                Send test
-              </button>
-            </div>
-          ))}
-        </div>
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-cyan-300">
-            Add notification channel
-          </summary>
-          <form
-            onSubmit={addChannel}
-            className="mt-3 grid gap-2 md:grid-cols-3"
-          >
-            <input
-              required
-              placeholder="Friendly name"
-              value={channel.name}
-              onChange={(e) => setChannel({ ...channel, name: e.target.value })}
-              className={field}
-            />
-            <select
-              value={channel.kind}
-              onChange={(e) => setChannel({ ...channel, kind: e.target.value })}
-              className={field}
-            >
-              <option value="smtp">SMTP email</option>
-              <option value="gotify">Gotify</option>
-              <option value="pushover">Pushover</option>
-              <option value="webhook">Webhook</option>
-            </select>
-            {channel.kind === "smtp" ? (
-              <>
-                <input
-                  placeholder="SMTP host"
-                  value={channel.host}
-                  onChange={(e) =>
-                    setChannel({ ...channel, host: e.target.value })
-                  }
-                  className={field}
-                />
-                <input
-                  placeholder="From address"
-                  value={channel.from}
-                  onChange={(e) =>
-                    setChannel({ ...channel, from: e.target.value })
-                  }
-                  className={field}
-                />
-                <input
-                  placeholder="To address"
-                  value={channel.to}
-                  onChange={(e) =>
-                    setChannel({ ...channel, to: e.target.value })
-                  }
-                  className={field}
-                />
-              </>
-            ) : (
-              channel.kind !== "pushover" && (
-                <input
-                  placeholder="URL"
-                  value={channel.url}
-                  onChange={(e) =>
-                    setChannel({ ...channel, url: e.target.value })
-                  }
-                  className={field}
-                />
-              )
-            )}
-            {(channel.kind === "gotify" || channel.kind === "pushover") && (
-              <input
-                placeholder="API token"
-                type="password"
-                value={channel.token}
-                onChange={(e) =>
-                  setChannel({ ...channel, token: e.target.value })
-                }
-                className={field}
-              />
-            )}
-            {channel.kind === "pushover" && (
-              <input
-                placeholder="User key"
-                value={channel.user}
-                onChange={(e) =>
-                  setChannel({ ...channel, user: e.target.value })
-                }
-                className={field}
-              />
-            )}
-            <button className="rounded-lg bg-cyan-300 px-3 py-2 text-sm font-medium text-slate-950">
-              Add channel
-            </button>
-          </form>
-        </details>
-      </section>
+      <NotificationsPanel channels={channels} act={act} />
     </section>
   );
 }

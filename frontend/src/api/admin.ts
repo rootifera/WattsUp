@@ -16,6 +16,7 @@ export interface NotificationChannel {
   kind: "smtp" | "gotify" | "pushover" | "webhook";
   enabled: boolean;
   configuration: Record<string, unknown>;
+  has_secret: boolean;
   events: string[];
 }
 
@@ -27,7 +28,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     };
     throw new Error(body.detail || `Request failed (${response.status})`);
   }
-  return response.json() as Promise<T>;
+  return response.status === 204
+    ? (undefined as T)
+    : (response.json() as Promise<T>);
 }
 
 export const adminApi = {
@@ -56,6 +59,13 @@ export const adminApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  updateChannel: (id: number, body: Record<string, unknown>) =>
+    request(`/api/admin/notifications/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  removeChannel: (id: number) =>
+    request<void>(`/api/admin/notifications/${id}`, { method: "DELETE" }),
   testChannel: (id: number) =>
     request<{ message: string }>(`/api/admin/notifications/${id}/test`, {
       method: "POST",
