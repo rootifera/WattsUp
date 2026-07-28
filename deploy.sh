@@ -69,7 +69,6 @@ WEB_PORT=8000
 DATABASE_PASSWORD=$(random_secret 24)
 JWT_SECRET=$(random_secret 32)
 SETUP_TOKEN=$(random_secret 24)
-SSH_KEY_PATH=/data/ssh/id_ed25519
 EOF
 else
   chmod 600 "${ENV_FILE}"
@@ -78,7 +77,6 @@ else
   ensure_setting "DATABASE_PASSWORD" "$(random_secret 24)"
   ensure_setting "JWT_SECRET" "$(random_secret 32)"
   ensure_setting "SETUP_TOKEN" "$(random_secret 24)"
-  ensure_setting "SSH_KEY_PATH" "/data/ssh/id_ed25519"
 fi
 
 log "pulling service images"

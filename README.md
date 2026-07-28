@@ -72,7 +72,6 @@ WEB_PORT=8000
 DATABASE_PASSWORD=replace-with-a-long-random-password
 JWT_SECRET=replace-with-at-least-32-random-characters
 SETUP_TOKEN=replace-with-a-random-first-run-token
-SSH_KEY_PATH=/data/ssh/id_ed25519
 ```
 
 Start the PostgreSQL and WattsUp containers:
