@@ -187,6 +187,20 @@ async def add_channel(body: ChannelInput, request: Request) -> dict[str, int]:
     return {"id": channel.id}
 
 
+@router.post("/notifications/test-configuration")
+async def test_channel_configuration(body: ChannelInput) -> dict[str, str]:
+    try:
+        await send_notification(
+            body.kind,
+            body.configuration,
+            "WattsUp test",
+            "Your notification settings are working.",
+        )
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return {"message": "Test notification sent"}
+
+
 @router.put("/notifications/{channel_id}")
 async def update_channel(channel_id: int, body: ChannelInput, request: Request) -> dict[str, str]:
     secret_box = box()

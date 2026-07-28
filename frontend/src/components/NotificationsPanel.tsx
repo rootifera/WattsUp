@@ -93,8 +93,7 @@ export function NotificationsPanel({
 }) {
   const [form, setForm] = useState(initialForm);
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
+  const channelBody = () => {
     const configuration =
       form.kind === "smtp"
         ? {
@@ -111,14 +110,19 @@ export function NotificationsPanel({
           : form.kind === "gotify"
             ? { url: form.url, token: form.token }
             : { url: form.url };
+    return {
+      name: form.name || "Unsaved notification channel",
+      kind: form.kind,
+      enabled: form.enabled,
+      configuration,
+      events: form.events,
+    };
+  };
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
     void act(async () => {
-      await adminApi.addChannel({
-        name: form.name,
-        kind: form.kind,
-        enabled: form.enabled,
-        configuration,
-        events: form.events,
-      });
+      await adminApi.addChannel(channelBody());
       setForm(initialForm);
     }, "Notification channel added.");
   };
@@ -239,9 +243,24 @@ export function NotificationsPanel({
                 />
                 Enable immediately
               </label>
-              <button className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-medium text-slate-950">
-                Add channel
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    if (!event.currentTarget.form?.reportValidity()) return;
+                    void act(
+                      () => adminApi.testChannelConfiguration(channelBody()),
+                      "Test notification sent.",
+                    );
+                  }}
+                  className="rounded-lg border border-cyan-900 px-4 py-2 text-sm text-cyan-300"
+                >
+                  Test settings
+                </button>
+                <button className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-medium text-slate-950">
+                  Add channel
+                </button>
+              </div>
             </div>
           </form>
         </details>

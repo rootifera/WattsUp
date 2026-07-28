@@ -59,6 +59,14 @@ export const adminApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  testChannelConfiguration: (body: Record<string, unknown>) =>
+    request<{ message: string }>(
+      "/api/admin/notifications/test-configuration",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    ),
   updateChannel: (id: number, body: Record<string, unknown>) =>
     request(`/api/admin/notifications/${id}`, {
       method: "PUT",
