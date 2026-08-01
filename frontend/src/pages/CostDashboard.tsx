@@ -19,6 +19,13 @@ const money = (currency: string, value: number) =>
   new Intl.NumberFormat(undefined, { style: "currency", currency }).format(
     value,
   );
+const hourlyMoney = (currency: string, value: number) =>
+  new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(value);
 
 interface PowerPoint {
   recorded_at: string;
@@ -257,11 +264,18 @@ export function CostDashboard({ ups }: { ups: string }) {
                     }
                   />
                   <ChartDetail
-                    label="Interval cost"
+                    label="Estimated hourly cost"
                     value={
-                      hoveredPoint.cost === null
+                      hoveredPoint.cost === null ||
+                      hoveredPoint.energy_kwh === null ||
+                      hoveredPoint.energy_kwh <= 0 ||
+                      hoveredPoint.power_watts === null
                         ? "—"
-                        : money(detail.summary.currency, hoveredPoint.cost)
+                        : `${hourlyMoney(
+                            detail.summary.currency,
+                            (hoveredPoint.power_watts / 1000) *
+                              (hoveredPoint.cost / hoveredPoint.energy_kwh),
+                          )}/hour`
                     }
                   />
                 </div>
