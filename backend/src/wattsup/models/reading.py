@@ -1,6 +1,6 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
-from sqlalchemy import DateTime, Float, Integer, String
+from sqlalchemy import Date, DateTime, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from wattsup.database.base import Base
@@ -23,3 +23,7 @@ class UpsReading(Base):
     load_percent: Mapped[float | None] = mapped_column(Float)
     power_watts: Mapped[float | None] = mapped_column(Float)
     power_source: Mapped[str | None] = mapped_column(String(20))
+    energy_kwh: Mapped[float | None] = mapped_column(Float)
+    cost: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str | None] = mapped_column(String(3))
+    local_date: Mapped[date | None] = mapped_column(Date, index=True)

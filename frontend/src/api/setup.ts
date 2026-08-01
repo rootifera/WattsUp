@@ -12,6 +12,7 @@ export interface Installation {
     port: number;
     username: string | null;
     password: string | null;
+    timezone: string;
   }[];
 }
 

@@ -13,6 +13,7 @@ class InitialNutServer(BaseModel):
     port: int = Field(default=3493, ge=1, le=65535)
     username: str | None = None
     password: str | None = None
+    timezone: str = "UTC"
 
 
 class InstallationRequest(BaseModel):

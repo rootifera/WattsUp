@@ -18,7 +18,12 @@ export function Admin() {
     queryKey: ["notification-channels"],
     queryFn: adminApi.channels,
   });
+  const { data: retention } = useQuery({
+    queryKey: ["retention"],
+    queryFn: adminApi.retention,
+  });
   const [serverNotice, setServerNotice] = useState("");
+  const [retentionNotice, setRetentionNotice] = useState("");
   const [server, setServer] = useState({
     name: "",
     host: "",
@@ -27,6 +32,7 @@ export function Admin() {
     password: "",
     currency: "GBP",
     price_per_kwh: 0.25,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
 
   const act = async (operation: () => Promise<unknown>, success = "Saved.") => {
@@ -75,6 +81,8 @@ export function Admin() {
                       name: String(form.get("name")),
                       currency: String(form.get("currency")),
                       price_per_kwh: Number(form.get("price")),
+                      timezone: String(form.get("timezone")),
+                      tariff_effective_date: String(form.get("effective_date")),
                     }),
                   );
                 }}
@@ -93,6 +101,18 @@ export function Admin() {
                   step="0.0001"
                   defaultValue={item.price_per_kwh}
                   className={`${field} w-32`}
+                />
+                <input
+                  name="timezone"
+                  defaultValue={item.timezone}
+                  className={`${field} min-w-44 flex-1`}
+                />
+                <input
+                  name="effective_date"
+                  type="date"
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  title="Tariff effective date"
+                  className={field}
                 />
                 <button className="rounded-lg border border-cyan-900 px-3 text-xs text-cyan-300">
                   Save tariff
@@ -153,6 +173,14 @@ export function Admin() {
               className={field}
             />
             <input
+              value={server.timezone}
+              onChange={(e) =>
+                setServer({ ...server, timezone: e.target.value })
+              }
+              placeholder="Timezone"
+              className={field}
+            />
+            <input
               value={server.currency}
               onChange={(e) =>
                 setServer({ ...server, currency: e.target.value })
@@ -173,6 +201,55 @@ export function Admin() {
             </button>
           </form>
         </details>
+      </section>
+      <section className="rounded-2xl border border-slate-800 bg-panel p-5">
+        <h3 className="font-medium">Data retention</h3>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+          Daily energy and cost totals are kept permanently. Choose how long
+          detailed raw readings remain available for power timelines.
+        </p>
+        {retentionNotice && (
+          <p className="mt-3 rounded-lg bg-slate-950/60 px-3 py-2 text-xs text-slate-300">
+            {retentionNotice}
+          </p>
+        )}
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const value = String(
+              new FormData(event.currentTarget).get("raw_days") ?? "",
+            );
+            void adminApi
+              .updateRetention(value === "unlimited" ? null : Number(value))
+              .then(async () => {
+                setRetentionNotice("Retention updated.");
+                await client.invalidateQueries({ queryKey: ["retention"] });
+              })
+              .catch((error: unknown) =>
+                setRetentionNotice(
+                  error instanceof Error ? error.message : "Update failed",
+                ),
+              );
+          }}
+          className="mt-4 flex flex-col gap-2 sm:flex-row"
+        >
+          <select
+            name="raw_days"
+            defaultValue={retention?.raw_days ?? "unlimited"}
+            key={String(retention?.raw_days)}
+            className={`${field} sm:w-56`}
+          >
+            <option value="30">30 days</option>
+            <option value="90">90 days</option>
+            <option value="180">180 days</option>
+            <option value="365">1 year</option>
+            <option value="730">2 years</option>
+            <option value="unlimited">Unlimited</option>
+          </select>
+          <button className="rounded-lg border border-cyan-900 px-4 py-2 text-sm text-cyan-300">
+            Save retention
+          </button>
+        </form>
       </section>
       <NotificationsPanel channels={channels} />
     </section>

@@ -1,7 +1,18 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from wattsup.database.base import Base
@@ -31,6 +42,7 @@ class NutServer(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     currency: Mapped[str] = mapped_column(String(3), default="GBP")
     price_per_kwh: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal("0"))
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC")
     units: Mapped[list["ManagedUps"]] = relationship(
         back_populates="server", cascade="all, delete-orphan"
     )
@@ -61,3 +73,38 @@ class NotificationChannel(Base):
         default="on_battery,power_restored,low_battery,unreachable,reconnected,"
         "test_result,shutdown_result",
     )
+
+
+class TariffRate(Base):
+    __tablename__ = "tariff_rates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    server_id: Mapped[int] = mapped_column(
+        ForeignKey("nut_servers.id", ondelete="CASCADE"), index=True
+    )
+    effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    currency: Mapped[str] = mapped_column(String(3))
+    price_per_kwh: Mapped[Decimal] = mapped_column(Numeric(12, 6))
+
+
+class DailyEnergy(Base):
+    __tablename__ = "daily_energy"
+    __table_args__ = (UniqueConstraint("ups_id", "local_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ups_id: Mapped[int] = mapped_column(
+        ForeignKey("managed_ups.id", ondelete="CASCADE"), index=True
+    )
+    local_date: Mapped[date] = mapped_column(Date, index=True)
+    energy_kwh: Mapped[float] = mapped_column(Float, default=0)
+    cost: Mapped[float] = mapped_column(Float, default=0)
+    currency: Mapped[str] = mapped_column(String(3))
+    sample_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_power_watts: Mapped[float | None] = mapped_column(Float)
+
+
+class RetentionSettings(Base):
+    __tablename__ = "retention_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    raw_days: Mapped[int | None] = mapped_column(Integer)

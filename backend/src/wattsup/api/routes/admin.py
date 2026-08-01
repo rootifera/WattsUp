@@ -1,6 +1,8 @@
 import json
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
@@ -10,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from wattsup.core.auth import require_authenticated
 from wattsup.core.config import get_settings
 from wattsup.core.secrets import SecretBox
-from wattsup.models.configuration import ManagedUps, NotificationChannel, NutServer
+from wattsup.models.configuration import ManagedUps, NotificationChannel, NutServer, TariffRate
 from wattsup.nut.exceptions import NutError
 from wattsup.nut.protocol import NutClient
 from wattsup.services.notifications import send_notification
@@ -28,12 +30,15 @@ class ServerInput(BaseModel):
     password: str | None = None
     currency: str = Field(default="GBP", min_length=3, max_length=3)
     price_per_kwh: Decimal = Field(default=Decimal("0"), ge=0)
+    timezone: str = "UTC"
 
 
 class ServerUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     currency: str = Field(min_length=3, max_length=3)
     price_per_kwh: Decimal = Field(ge=0)
+    timezone: str = "UTC"
+    tariff_effective_date: date | None = None
 
 
 class UpsUpdate(BaseModel):
@@ -46,6 +51,10 @@ class ChannelInput(BaseModel):
     enabled: bool = False
     configuration: dict[str, Any]
     events: list[str] = []
+
+
+class RetentionInput(BaseModel):
+    raw_days: int | None = Field(default=None, ge=1)
 
 
 SECRET_FIELDS = {"password", "token"}
@@ -89,6 +98,7 @@ def server_output(server: NutServer) -> dict[str, Any]:
         "port": server.port,
         "currency": server.currency,
         "price_per_kwh": float(server.price_per_kwh),
+        "timezone": server.timezone,
         "units": [
             {"id": unit.id, "nut_name": unit.nut_name, "display_name": unit.display_name}
             for unit in server.units
@@ -107,8 +117,24 @@ async def servers(request: Request) -> list[dict[str, Any]]:
         return [server_output(server) for server in values]
 
 
+@router.get("/retention")
+async def retention(request: Request) -> dict[str, int | None]:
+    value = await request.app.state.reading_repository.retention()
+    return {"raw_days": value.raw_days}
+
+
+@router.put("/retention")
+async def update_retention(body: RetentionInput, request: Request) -> dict[str, int | None]:
+    value = await request.app.state.reading_repository.set_retention(body.raw_days)
+    return {"raw_days": value.raw_days}
+
+
 @router.post("/servers", status_code=201)
 async def add_server(body: ServerInput, request: Request) -> dict[str, Any]:
+    try:
+        ZoneInfo(body.timezone)
+    except ZoneInfoNotFoundError as error:
+        raise HTTPException(status_code=422, detail="Unknown timezone") from error
     client = NutClient(body.host, body.port, username=body.username, password=body.password)
     try:
         units = await client.list_ups()
@@ -124,9 +150,18 @@ async def add_server(body: ServerInput, request: Request) -> dict[str, Any]:
             password_encrypted=secret_box.encrypt(body.password),
             currency=body.currency.upper(),
             price_per_kwh=body.price_per_kwh,
+            timezone=body.timezone,
         )
         session.add(server)
         await session.flush()
+        session.add(
+            TariffRate(
+                server_id=server.id,
+                effective_from=datetime.now(UTC),
+                currency=body.currency.upper(),
+                price_per_kwh=body.price_per_kwh,
+            )
+        )
         session.add_all(
             ManagedUps(
                 server_id=server.id,
@@ -142,13 +177,36 @@ async def add_server(body: ServerInput, request: Request) -> dict[str, Any]:
 
 @router.put("/servers/{server_id}")
 async def update_server(server_id: int, body: ServerUpdate, request: Request) -> dict[str, str]:
+    try:
+        ZoneInfo(body.timezone)
+    except ZoneInfoNotFoundError as error:
+        raise HTTPException(status_code=422, detail="Unknown timezone") from error
     async with request.app.state.database.sessions() as session:
         server = await session.get(NutServer, server_id)
         if server is None:
             raise HTTPException(status_code=404, detail="NUT server not found")
+        tariff_changed = (
+            server.currency != body.currency.upper() or server.price_per_kwh != body.price_per_kwh
+        )
         server.name = body.name
         server.currency = body.currency.upper()
         server.price_per_kwh = body.price_per_kwh
+        server.timezone = body.timezone
+        if tariff_changed:
+            effective_date = (
+                body.tariff_effective_date or datetime.now(ZoneInfo(body.timezone)).date()
+            )
+            effective_from = datetime.combine(
+                effective_date, time.min, ZoneInfo(body.timezone)
+            ).astimezone(UTC)
+            session.add(
+                TariffRate(
+                    server_id=server.id,
+                    effective_from=effective_from,
+                    currency=body.currency.upper(),
+                    price_per_kwh=body.price_per_kwh,
+                )
+            )
         await session.commit()
     return {"message": "Server updated"}
 

@@ -306,7 +306,7 @@ export function ShutdownAutomation({ ups }: { ups: string }) {
         </p>
       )}
 
-      <section className="rounded-2xl border border-slate-800 bg-panel p-5">
+      <section className="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5">
         <h3 className="mb-4 font-medium">Add Linux device</h3>
         <form
           onSubmit={submit}
@@ -433,7 +433,7 @@ export function ShutdownAutomation({ ups }: { ups: string }) {
         {devices.map((device) => (
           <article
             key={device.id}
-            className="rounded-2xl border border-slate-800 bg-panel p-5"
+            className="rounded-2xl border border-slate-800 bg-panel p-4 sm:p-5"
           >
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div className="flex gap-3">

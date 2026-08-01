@@ -7,6 +7,7 @@ export interface NutServer {
   port: number;
   currency: string;
   price_per_kwh: number;
+  timezone: string;
   units: { id: number; nut_name: string; display_name: string }[];
 }
 
@@ -37,7 +38,12 @@ export const adminApi = {
   servers: () => request<NutServer[]>("/api/admin/servers"),
   updateServer: (
     id: number,
-    body: Pick<NutServer, "name" | "currency" | "price_per_kwh">,
+    body: Pick<
+      NutServer,
+      "name" | "currency" | "price_per_kwh" | "timezone"
+    > & {
+      tariff_effective_date?: string;
+    },
   ) =>
     request(`/api/admin/servers/${id}`, {
       method: "PUT",
@@ -54,6 +60,12 @@ export const adminApi = {
       body: JSON.stringify(body),
     }),
   channels: () => request<NotificationChannel[]>("/api/admin/notifications"),
+  retention: () => request<{ raw_days: number | null }>("/api/admin/retention"),
+  updateRetention: (raw_days: number | null) =>
+    request<{ raw_days: number | null }>("/api/admin/retention", {
+      method: "PUT",
+      body: JSON.stringify({ raw_days }),
+    }),
   addChannel: (body: Record<string, unknown>) =>
     request<{ id: number }>("/api/admin/notifications", {
       method: "POST",

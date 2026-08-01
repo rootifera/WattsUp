@@ -23,6 +23,7 @@ class Poller:
         self.interval_seconds = interval_seconds
         self.on_status = on_status
         self._task: asyncio.Task[None] | None = None
+        self._last_prune: float = 0
 
     def start(self) -> None:
         if self._task is None:
@@ -38,6 +39,9 @@ class Poller:
     async def _run(self) -> None:
         while True:
             try:
+                if asyncio.get_running_loop().time() - self._last_prune >= 3600:
+                    await self.repository.prune()
+                    self._last_prune = asyncio.get_running_loop().time()
                 await self.ups_manager.discover()
                 units = await self.ups_manager.list_units()
                 for unit in units:

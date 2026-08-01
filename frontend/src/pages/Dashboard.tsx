@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
+  ChartNoAxesColumnIncreasing,
   LogOut,
   Power,
   SlidersHorizontal,
@@ -16,6 +17,7 @@ import { UpsDetails } from "../components/UpsDetails";
 import { EnergyPanel } from "../components/EnergyPanel";
 import { ShutdownAutomation } from "./ShutdownAutomation";
 import { Admin } from "./Admin";
+import { CostDashboard } from "./CostDashboard";
 
 const NUT_STATUS_LABELS: Record<string, string> = {
   OL: "Online",
@@ -106,7 +108,7 @@ interface DashboardProps {
 
 export function Dashboard({ onLogout }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "controls" | "shutdown" | "admin"
+    "dashboard" | "costs" | "controls" | "shutdown" | "admin"
   >("dashboard");
   const [selectedUps, setSelectedUps] = useState(
     () => window.localStorage.getItem("wattsup:selected-ups") || "",
@@ -137,9 +139,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
   );
 
   return (
-    <main className="min-h-screen bg-ink px-5 py-8 text-slate-100 md:px-10">
+    <main className="min-h-screen overflow-x-hidden bg-ink px-3 py-5 text-slate-100 sm:px-5 sm:py-8 md:px-10">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-10 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <header className="mb-7 flex flex-col justify-between gap-5 md:mb-10 md:flex-row md:items-end">
           <div>
             <div className="mb-3 flex items-center gap-3">
               <div className="rounded-xl bg-cyan-300 p-2 text-slate-950">
@@ -155,9 +157,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
               {data?.model || "monitor"}
             </p>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center md:w-auto md:justify-end">
             {upsUnits.length > 0 && (
-              <label className="flex items-center gap-2 rounded-full border border-slate-800 bg-panel px-4 py-2">
+              <label className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-800 bg-panel px-4 py-2 sm:rounded-full">
                 <span className="text-xs text-slate-500">UPS</span>
                 <select
                   value={activeUps}
@@ -168,7 +170,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                       event.target.value,
                     );
                   }}
-                  className="bg-transparent text-sm text-slate-200 outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-slate-200 outline-none"
                   aria-label="Select UPS"
                 >
                   {upsUnits.map((unit) => (
@@ -185,7 +187,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 </select>
               </label>
             )}
-            <div className="flex items-center gap-3 rounded-full border border-slate-800 bg-panel px-4 py-2">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-panel px-4 py-2 sm:rounded-full">
               <span
                 className={`h-2.5 w-2.5 rounded-full ${
                   connected
@@ -224,7 +226,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
         )}
 
         <nav
-          className="mb-6 flex gap-2 border-b border-slate-800"
+          className="-mx-3 mb-6 flex gap-1 overflow-x-auto border-b border-slate-800 px-3 sm:mx-0 sm:gap-2 sm:px-0"
           aria-label="Main navigation"
         >
           {[
@@ -239,6 +241,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
               icon: SlidersHorizontal,
             },
             {
+              id: "costs" as const,
+              label: "Cost & usage",
+              icon: ChartNoAxesColumnIncreasing,
+            },
+            {
               id: "shutdown" as const,
               label: "Shutdown automation",
               icon: Power,
@@ -249,7 +256,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
               key={id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-xs font-medium transition sm:px-4 sm:text-sm ${
                 activeTab === id
                   ? "border-cyan-300 text-cyan-200"
                   : "border-transparent text-slate-500 hover:text-slate-200"
@@ -278,6 +285,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
             <EnergyPanel ups={activeUps} />
             <UpsDetails ups={activeUps} />
           </>
+        ) : activeTab === "costs" ? (
+          <CostDashboard ups={activeUps} />
         ) : activeTab === "controls" ? (
           <CommandPanel ups={activeUps} />
         ) : activeTab === "shutdown" ? (

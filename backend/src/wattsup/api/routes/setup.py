@@ -1,4 +1,5 @@
 import hmac
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import func, select
@@ -6,7 +7,7 @@ from sqlalchemy import func, select
 from wattsup.core.auth import hash_password
 from wattsup.core.config import get_settings
 from wattsup.core.secrets import SecretBox
-from wattsup.models.configuration import Administrator, ManagedUps, NutServer
+from wattsup.models.configuration import Administrator, ManagedUps, NutServer, TariffRate
 from wattsup.nut.exceptions import NutError
 from wattsup.nut.protocol import NutClient
 from wattsup.schemas.setup import InitialNutServer, InstallationRequest, SetupStatus
@@ -63,9 +64,18 @@ async def install(body: InstallationRequest, request: Request) -> dict[str, str]
                 password_encrypted=secret_box.encrypt(server_input.password),
                 currency=body.currency.upper(),
                 price_per_kwh=body.price_per_kwh,
+                timezone=server_input.timezone,
             )
             session.add(db_server)
             await session.flush()
+            session.add(
+                TariffRate(
+                    server_id=db_server.id,
+                    effective_from=datetime.now(UTC),
+                    currency=body.currency.upper(),
+                    price_per_kwh=body.price_per_kwh,
+                )
+            )
             session.add_all(
                 ManagedUps(
                     server_id=db_server.id,

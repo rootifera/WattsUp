@@ -31,7 +31,7 @@ export function Login({ onAuthenticated }: LoginProps) {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-ink px-5 text-slate-100">
-      <section className="w-full max-w-md rounded-3xl border border-slate-800 bg-panel p-8 shadow-2xl">
+      <section className="w-full max-w-md rounded-2xl border border-slate-800 bg-panel p-5 shadow-2xl sm:rounded-3xl sm:p-8">
         <div className="mb-8 flex items-center gap-3">
           <div className="rounded-xl bg-cyan-300 p-2 text-slate-950">
             <Zap className="h-5 w-5" fill="currentColor" />

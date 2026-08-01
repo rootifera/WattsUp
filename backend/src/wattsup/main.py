@@ -25,7 +25,7 @@ def create_app() -> FastAPI:
     database = Database(settings)
     ssh_service = SshService(settings.ssh_key_path)
     shutdown_service = ShutdownService(database.sessions, ssh_service)
-    reading_repository = ReadingRepository(database.sessions)
+    reading_repository = ReadingRepository(database.sessions, settings.poll_interval_seconds)
     ups_manager = UpsManager(database.sessions, SecretBox(settings.jwt_secret))
     notifier = NotificationDispatcher(database.sessions, SecretBox(settings.jwt_secret))
 

@@ -128,7 +128,7 @@ export function PowerOverview(props: PowerOverviewProps) {
               <p className="mb-2 text-sm font-medium text-slate-400">
                 Battery reserve
               </p>
-              <p className="text-5xl font-semibold tracking-[-0.05em] text-white md:text-6xl">
+              <p className="text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl md:text-6xl">
                 {number(props.batteryCharge, "%")}
               </p>
             </div>

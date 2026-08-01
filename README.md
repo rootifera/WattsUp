@@ -15,6 +15,9 @@ automates safe shutdowns of remote Linux devices.
 - Measured power when `ups.realpower` is available
 - Estimated power from UPS load and nominal real power when it is not
 - Daily and monthly kWh/cost totals with a 24-hour power graph
+- Dedicated Cost & Usage dashboard with day and month selection
+- Permanent daily billing totals and configurable raw-reading retention
+- Effective-dated tariff history and per-server billing time zones
 - Flat electricity tariff and currency configured separately for each NUT server
 - Dynamically discovered and grouped UPS instant commands
 - Typed confirmation for dangerous power commands
@@ -23,6 +26,7 @@ automates safe shutdowns of remote Linux devices.
 - On-battery, restored, low-battery, unreachable, and reconnected notification events
 - Per-device remote Linux shutdown rules tied to a specific UPS
 - Ed25519 SSH keys, host-key approval, readiness tests, simulation, and global dry-run mode
+- Responsive layouts for phones, tablets, and desktop browsers
 
 ## Requirements
 
@@ -125,6 +129,7 @@ NUT servers are added during installation or from **Admin**. Each stores:
 - Host and port
 - Encrypted NUT username and password
 - Currency and flat price per kWh
+- IANA billing timezone, such as `Europe/London`
 - Discovered UPS units
 
 UPS identifiers remain unchanged on the NUT server, while their display names can be edited in
@@ -140,12 +145,33 @@ WattsUp prefers `ups.realpower` when a UPS reports it. Otherwise it estimates cu
 ups.realpower.nominal × ups.load / 100
 ```
 
-Periodic power samples are integrated into estimated kWh. The dashboard shows current demand,
+Periodic power samples are integrated into estimated kWh. The main dashboard shows current demand,
 energy today, cost today, cost this month, monthly energy, and a 24-hour graph.
+
+The dedicated **Cost & Usage** tab provides:
+
+- Month selection with total cost, usage, daily average, and recorded-day count
+- A side-by-side daily cost bar chart for the selected month
+- Individual day selection with retained kWh and cost
+- Detailed intraday power timelines while raw readings remain available
+
+Each reading records the applied tariff, energy, cost, currency, and local billing date. Changing a
+tariff creates a new effective-dated rate instead of rewriting older costs. Billing periods follow
+the NUT server's configured timezone.
+
+Daily energy and cost rollups are retained indefinitely. In **Admin → Data retention**, raw
+30-second readings can be retained for 30, 90, 180, 365, or 730 days, or indefinitely. Removing raw
+readings reduces database growth without removing historical daily or monthly totals.
 
 Load percentage can be rounded and output power does not necessarily include UPS conversion losses,
 so figures derived from nominal power are intentionally labelled as estimates rather than
 revenue-grade measurements.
+
+## Mobile interface
+
+WattsUp supports screens down to 320 pixels wide. Header controls stack on phones, the main tab bar
+scrolls horizontally, metric and form grids collapse to one column, and dense billing charts use
+contained horizontal scrolling rather than widening the entire page.
 
 ## Notifications
 

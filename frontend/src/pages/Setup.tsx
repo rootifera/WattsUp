@@ -9,6 +9,7 @@ const emptyServer = () => ({
   port: 3493,
   username: "",
   password: "",
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
 });
 
 export function Setup({ onComplete }: { onComplete: () => void }) {
@@ -40,10 +41,10 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <main className="min-h-screen bg-ink px-5 py-10 text-slate-100">
+    <main className="min-h-screen bg-ink px-3 py-5 text-slate-100 sm:px-5 sm:py-10">
       <form
         onSubmit={submit}
-        className="mx-auto max-w-3xl space-y-6 rounded-3xl border border-slate-800 bg-panel p-7"
+        className="mx-auto max-w-3xl space-y-6 rounded-2xl border border-slate-800 bg-panel p-4 sm:rounded-3xl sm:p-7"
       >
         <header>
           <div className="mb-4 flex items-center gap-3">
