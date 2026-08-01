@@ -20,10 +20,19 @@ const money = (currency: string, value: number) =>
     value,
   );
 
+interface PowerPoint {
+  recorded_at: string;
+  time: string;
+  power_watts: number | null;
+  energy_kwh: number | null;
+  cost: number | null;
+}
+
 export function CostDashboard({ ups }: { ups: string }) {
   const [month, setMonth] = useState(today.slice(0, 7));
   const [day, setDay] = useState(today);
   const [hoveredDay, setHoveredDay] = useState<BillingDay | null>(null);
+  const [hoveredPoint, setHoveredPoint] = useState<PowerPoint | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["billing-month", ups, month],
     queryFn: () => billingApi.month(ups, month),
@@ -34,6 +43,18 @@ export function CostDashboard({ ups }: { ups: string }) {
     queryFn: () => billingApi.day(ups, day),
     enabled: Boolean(ups),
   });
+  const powerPoints: PowerPoint[] =
+    detail?.points.map((point) => ({
+      ...point,
+      time: new Date(point.recorded_at).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    })) ?? [];
+  const updateHoveredPoint = (index: string | number | null | undefined) => {
+    const point = powerPoints[Number(index)];
+    if (point) setHoveredPoint(point);
+  };
   return (
     <section className="space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -186,13 +207,14 @@ export function CostDashboard({ ups }: { ups: string }) {
             <div className="h-64 min-w-[620px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={detail.points.map((p) => ({
-                    ...p,
-                    time: new Date(p.recorded_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }),
-                  }))}
+                  data={powerPoints}
+                  onMouseMove={(state) =>
+                    updateHoveredPoint(state.activeTooltipIndex)
+                  }
+                  onMouseLeave={() => setHoveredPoint(null)}
+                  onTouchMove={(state) =>
+                    updateHoveredPoint(state.activeTooltipIndex)
+                  }
                 >
                   <XAxis
                     dataKey="time"
@@ -200,10 +222,54 @@ export function CostDashboard({ ups }: { ups: string }) {
                     minTickGap={35}
                   />
                   <YAxis tick={{ fill: "#64748b", fontSize: 10 }} />
-                  <Tooltip formatter={(v) => `${Number(v).toFixed(0)} W`} />
+                  <Tooltip content={() => null} />
                   <Area dataKey="power_watts" stroke="#67e8f9" fill="#164e63" />
                 </AreaChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-3 min-h-16 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3">
+              {hoveredPoint ? (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <ChartDetail
+                    label="Time"
+                    value={new Date(
+                      hoveredPoint.recorded_at,
+                    ).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  />
+                  <ChartDetail
+                    label="Load"
+                    value={
+                      hoveredPoint.power_watts === null
+                        ? "—"
+                        : `${hoveredPoint.power_watts.toFixed(0)} W`
+                    }
+                  />
+                  <ChartDetail
+                    label="Interval usage"
+                    value={
+                      hoveredPoint.energy_kwh === null
+                        ? "—"
+                        : `${hoveredPoint.energy_kwh.toFixed(5)} kWh`
+                    }
+                  />
+                  <ChartDetail
+                    label="Interval cost"
+                    value={
+                      hoveredPoint.cost === null
+                        ? "—"
+                        : money(detail.summary.currency, hoveredPoint.cost)
+                    }
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Move across the timeline to see the reading for that moment.
+                </p>
+              )}
             </div>
           </div>
         ) : (
