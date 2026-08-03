@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -15,6 +16,7 @@ from wattsup.services.battery_tests import BatteryTestScheduler
 from wattsup.services.ups import UpsManager
 
 router = APIRouter(tags=["Commands"], dependencies=[Depends(require_authenticated)])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/commands", response_model=list[CommandInfo])
@@ -38,8 +40,6 @@ async def execute_command(
     manager: UpsManager = request.app.state.ups_manager
     try:
         await manager.execute(ups, name, body.confirmed)
-        scheduler: BatteryTestScheduler = request.app.state.battery_test_scheduler
-        await scheduler.record_started(ups, name)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
@@ -48,6 +48,12 @@ async def execute_command(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     except NutError as error:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
+    scheduler: BatteryTestScheduler = request.app.state.battery_test_scheduler
+    try:
+        await scheduler.record_started(ups, name)
+    except Exception:
+        # Test bookkeeping must never make a successfully dispatched NUT command look failed.
+        logger.exception("Could not record battery test command for UPS %s", ups)
     return CommandResult()
 
 
