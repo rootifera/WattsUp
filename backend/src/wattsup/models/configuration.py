@@ -57,6 +57,16 @@ class ManagedUps(Base):
     display_name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    quick_test_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    deep_test_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_quick_test_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    last_deep_test_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    last_battery_test_result: Mapped[str | None] = mapped_column(Text)
+    last_battery_test_result_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     server: Mapped[NutServer] = relationship(back_populates="units")
 
 

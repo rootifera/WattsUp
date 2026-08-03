@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ChevronDown,
@@ -9,7 +9,14 @@ import {
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
 
-import { executeCommand, getCommands, type UpsCommand } from "../api/commands";
+import {
+  executeCommand,
+  getBatteryTestSchedule,
+  getCommands,
+  updateBatteryTestSchedule,
+  type UpsCommand,
+} from "../api/commands";
+import { getStatus } from "../api/status";
 
 interface Category {
   id: string;
@@ -106,6 +113,7 @@ function CommandButton({
 
 export function CommandPanel({ ups }: { ups: string }) {
   const [message, setMessage] = useState("");
+  const queryClient = useQueryClient();
   const { data = [], isLoading } = useQuery({
     queryKey: ["commands", ups],
     queryFn: () => getCommands(ups),
@@ -118,10 +126,33 @@ export function CommandPanel({ ups }: { ups: string }) {
       command: UpsCommand;
       confirmed: boolean;
     }) => executeCommand(command.name, confirmed, ups),
-    onSuccess: (_, { command }) =>
-      setMessage(`${friendlyName(command.name)} accepted by NUT.`),
+    onSuccess: async (_, { command }) => {
+      setMessage(`${friendlyName(command.name)} accepted by NUT. Waiting for the UPS result…`);
+      await queryClient.invalidateQueries({ queryKey: ["battery-test-schedule", ups] });
+      await queryClient.invalidateQueries({ queryKey: ["status", ups] });
+    },
     onError: (error) =>
       setMessage(error instanceof Error ? error.message : "Command failed"),
+  });
+  const { data: status } = useQuery({
+    queryKey: ["status", ups],
+    queryFn: () => getStatus(ups),
+    refetchInterval: 5_000,
+  });
+  const { data: schedule } = useQuery({
+    queryKey: ["battery-test-schedule", ups],
+    queryFn: () => getBatteryTestSchedule(ups),
+    refetchInterval: 30_000,
+  });
+  const scheduleMutation = useMutation({
+    mutationFn: ({ quick, deep }: { quick: boolean; deep: boolean }) =>
+      updateBatteryTestSchedule(ups, quick, deep),
+    onSuccess: (value) => {
+      queryClient.setQueryData(["battery-test-schedule", ups], value);
+      setMessage("Battery test schedule updated.");
+    },
+    onError: (error) =>
+      setMessage(error instanceof Error ? error.message : "Schedule update failed"),
   });
 
   const run = (command: UpsCommand) => {
@@ -156,6 +187,56 @@ export function CommandPanel({ ups }: { ups: string }) {
         </p>
       )}
       {isLoading && <p className="text-slate-500">Discovering commands…</p>}
+
+      <section className="mb-5 rounded-2xl border border-slate-800 bg-panel p-5">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+          <div>
+            <h3 className="font-medium">Battery test status</h3>
+            <p className="mt-1 text-sm text-slate-300">
+              {status?.battery_test_result || schedule?.last_result || "No result reported yet"}
+            </p>
+            {(schedule?.last_result_at || status?.battery_test_result) && (
+              <p className="mt-1 text-xs text-slate-500">
+                {schedule?.last_result_at
+                  ? `Last changed ${new Date(schedule.last_result_at).toLocaleString()}`
+                  : "Live result reported by NUT"}
+              </p>
+            )}
+          </div>
+          {schedule && (
+            <div className="flex flex-col gap-2 text-sm text-slate-300 sm:flex-row sm:gap-5">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={schedule.quick_enabled}
+                  disabled={scheduleMutation.isPending}
+                  onChange={(event) =>
+                    scheduleMutation.mutate({
+                      quick: event.target.checked,
+                      deep: schedule.deep_enabled,
+                    })
+                  }
+                />
+                Quick test weekly
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={schedule.deep_enabled}
+                  disabled={scheduleMutation.isPending}
+                  onChange={(event) =>
+                    scheduleMutation.mutate({
+                      quick: schedule.quick_enabled,
+                      deep: event.target.checked,
+                    })
+                  }
+                />
+                Deep test monthly
+              </label>
+            </div>
+          )}
+        </div>
+      </section>
 
       <div className="space-y-4">
         {categories.map((category) => {

@@ -13,6 +13,7 @@ from wattsup.database.session import Database
 from wattsup.models import UpsReading  # noqa: F401
 from wattsup.repositories.readings import ReadingRepository
 from wattsup.schemas.status import UpsStatus
+from wattsup.services.battery_tests import BatteryTestScheduler
 from wattsup.services.notifications import NotificationDispatcher
 from wattsup.services.poller import Poller
 from wattsup.services.shutdown import ShutdownService
@@ -28,8 +29,10 @@ def create_app() -> FastAPI:
     reading_repository = ReadingRepository(database.sessions, settings.poll_interval_seconds)
     ups_manager = UpsManager(database.sessions, SecretBox(settings.jwt_secret))
     notifier = NotificationDispatcher(database.sessions, SecretBox(settings.jwt_secret))
+    battery_test_scheduler = BatteryTestScheduler(database.sessions, ups_manager)
 
     async def status_observed(value: UpsStatus) -> None:
+        await battery_test_scheduler.observe(value)
         await notifier.evaluate(value)
         await shutdown_service.evaluate_status(value)
 
@@ -69,6 +72,7 @@ def create_app() -> FastAPI:
     app.state.ups_manager = ups_manager
     app.state.reading_repository = reading_repository
     app.state.shutdown_service = shutdown_service
+    app.state.battery_test_scheduler = battery_test_scheduler
     app.include_router(api_router, prefix=settings.api_prefix)
 
     @app.get("/adduser.sh", response_class=PlainTextResponse, include_in_schema=False)
