@@ -79,6 +79,11 @@ export function Admin() {
                   void act(() =>
                     adminApi.updateServer(item.id, {
                       name: String(form.get("name")),
+                      host: String(form.get("host")),
+                      port: Number(form.get("port")),
+                      username: String(form.get("username") || ""),
+                      password: String(form.get("password") || ""),
+                      clear_credentials: form.get("clear_credentials") === "on",
                       currency: String(form.get("currency")),
                       price_per_kwh: Number(form.get("price")),
                       timezone: String(form.get("timezone")),
@@ -86,36 +91,71 @@ export function Admin() {
                     }),
                   );
                 }}
-                className="flex flex-wrap gap-2"
+                className="grid gap-3 md:grid-cols-2 lg:grid-cols-4"
               >
-                <input name="name" defaultValue={item.name} className={field} />
-                <input
-                  name="currency"
-                  defaultValue={item.currency}
-                  maxLength={3}
-                  className={`${field} w-20`}
+                <ServerField
+                  label="Friendly name"
+                  name="name"
+                  value={item.name}
                 />
-                <input
+                <ServerField label="Host or IP" name="host" value={item.host} />
+                <ServerField
+                  label="Port"
+                  name="port"
+                  value={item.port}
+                  type="number"
+                />
+                <ServerField
+                  label="NUT username"
+                  name="username"
+                  placeholder={
+                    item.has_credentials
+                      ? "Leave blank to keep current"
+                      : "Optional"
+                  }
+                />
+                <ServerField
+                  label="NUT password"
+                  name="password"
+                  type="password"
+                  placeholder={
+                    item.has_credentials
+                      ? "Leave blank to keep current"
+                      : "Optional"
+                  }
+                />
+                <ServerField
+                  label="Currency"
+                  name="currency"
+                  value={item.currency}
+                  maxLength={3}
+                />
+                <ServerField
+                  label="Price per kWh"
                   name="price"
+                  value={item.price_per_kwh}
                   type="number"
                   step="0.0001"
-                  defaultValue={item.price_per_kwh}
-                  className={`${field} w-32`}
                 />
-                <input
+                <ServerField
+                  label="Timezone"
                   name="timezone"
-                  defaultValue={item.timezone}
-                  className={`${field} min-w-44 flex-1`}
+                  value={item.timezone}
                 />
-                <input
+                <ServerField
+                  label="Tariff effective date"
                   name="effective_date"
+                  value={new Date().toISOString().slice(0, 10)}
                   type="date"
-                  defaultValue={new Date().toISOString().slice(0, 10)}
-                  title="Tariff effective date"
-                  className={field}
                 />
-                <button className="rounded-lg border border-cyan-900 px-3 text-xs text-cyan-300">
-                  Save tariff
+                {item.has_credentials && (
+                  <label className="flex items-end gap-2 pb-2 text-xs text-slate-400">
+                    <input name="clear_credentials" type="checkbox" />
+                    Remove saved credentials
+                  </label>
+                )}
+                <button className="self-end rounded-lg border border-cyan-900 px-3 py-2 text-xs text-cyan-300">
+                  Save and test connection
                 </button>
               </form>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -253,5 +293,46 @@ export function Admin() {
       </section>
       <NotificationsPanel channels={channels} />
     </section>
+  );
+}
+
+function ServerField({
+  label,
+  name,
+  value,
+  type = "text",
+  placeholder,
+  step,
+  maxLength,
+}: {
+  label: string;
+  name: string;
+  value?: string | number;
+  type?: string;
+  placeholder?: string;
+  step?: string;
+  maxLength?: number;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs text-slate-500">{label}</span>
+      <input
+        name={name}
+        type={type}
+        defaultValue={value}
+        placeholder={placeholder}
+        step={step}
+        maxLength={maxLength}
+        required={[
+          "name",
+          "host",
+          "port",
+          "currency",
+          "price",
+          "timezone",
+        ].includes(name)}
+        className={`${field} w-full`}
+      />
+    </label>
   );
 }

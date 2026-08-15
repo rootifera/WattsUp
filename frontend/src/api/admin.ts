@@ -5,6 +5,7 @@ export interface NutServer {
   name: string;
   host: string;
   port: number;
+  has_credentials: boolean;
   currency: string;
   price_per_kwh: number;
   timezone: string;
@@ -40,9 +41,12 @@ export const adminApi = {
     id: number,
     body: Pick<
       NutServer,
-      "name" | "currency" | "price_per_kwh" | "timezone"
+      "name" | "host" | "port" | "currency" | "price_per_kwh" | "timezone"
     > & {
       tariff_effective_date?: string;
+      username?: string;
+      password?: string;
+      clear_credentials?: boolean;
     },
   ) =>
     request(`/api/admin/servers/${id}`, {

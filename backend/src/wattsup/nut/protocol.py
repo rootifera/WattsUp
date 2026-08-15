@@ -113,6 +113,11 @@ class NutClient:
                 else:
                     raise NutProtocolError(f"Unexpected UPS response: {response}")
 
+    async def authenticate(self) -> None:
+        """Verify credentials without executing a UPS command."""
+        async with self._connection(authenticate=True):
+            return
+
     async def get_supported_commands(self, ups_name: str) -> list[str]:
         async with self._connection() as (reader, writer):
             response = await self._send(reader, writer, f"LIST CMD {_quote(ups_name)}")

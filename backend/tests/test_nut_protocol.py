@@ -36,3 +36,23 @@ async def test_discovers_all_ups_from_nut_protocol() -> None:
         units = await NutClient("127.0.0.1", port).list_ups()
 
     assert units == {"apc": "Rack UPS", "office": "Office UPS"}
+
+
+async def test_verifies_credentials_without_running_a_command() -> None:
+    received: list[str] = []
+
+    async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        for _ in range(2):
+            received.append((await reader.readline()).decode().strip())
+            writer.write(b"OK\n")
+            await writer.drain()
+        writer.close()
+
+    server = await asyncio.start_server(handle_client, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    async with server:
+        await NutClient(
+            "127.0.0.1", port, username="monitor", password="secret"
+        ).authenticate()
+
+    assert received == ['USERNAME "monitor"', 'PASSWORD "secret"']

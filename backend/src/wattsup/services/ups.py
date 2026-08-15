@@ -134,3 +134,7 @@ class UpsManager:
         await CommandService(self._client(unit), unit.nut_name).execute(
             command, confirmed=confirmed
         )
+
+    def invalidate(self, ups_ids: set[int]) -> None:
+        for ups_id in ups_ids:
+            self._status_services.pop(ups_id, None)

@@ -35,6 +35,11 @@ class ServerInput(BaseModel):
 
 class ServerUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    host: str = Field(min_length=1, max_length=255)
+    port: int = Field(default=3493, ge=1, le=65535)
+    username: str | None = None
+    password: str | None = None
+    clear_credentials: bool = False
     currency: str = Field(min_length=3, max_length=3)
     price_per_kwh: Decimal = Field(ge=0)
     timezone: str = "UTC"
@@ -96,6 +101,7 @@ def server_output(server: NutServer) -> dict[str, Any]:
         "name": server.name,
         "host": server.host,
         "port": server.port,
+        "has_credentials": bool(server.username_encrypted or server.password_encrypted),
         "currency": server.currency,
         "price_per_kwh": float(server.price_per_kwh),
         "timezone": server.timezone,
@@ -182,16 +188,57 @@ async def update_server(server_id: int, body: ServerUpdate, request: Request) ->
     except ZoneInfoNotFoundError as error:
         raise HTTPException(status_code=422, detail="Unknown timezone") from error
     async with request.app.state.database.sessions() as session:
-        server = await session.get(NutServer, server_id)
+        server = await session.scalar(
+            select(NutServer)
+            .options(selectinload(NutServer.units))
+            .where(NutServer.id == server_id)
+        )
         if server is None:
             raise HTTPException(status_code=404, detail="NUT server not found")
+        secret_box = box()
+        if body.clear_credentials:
+            username = None
+            password = None
+        else:
+            username = body.username or secret_box.decrypt(server.username_encrypted)
+            password = body.password or secret_box.decrypt(server.password_encrypted)
+        client = NutClient(
+            body.host,
+            body.port,
+            username=username,
+            password=password,
+            timeout=server.timeout_seconds,
+        )
+        try:
+            units = await client.list_ups()
+            if username or password:
+                await client.authenticate()
+        except NutError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
         tariff_changed = (
             server.currency != body.currency.upper() or server.price_per_kwh != body.price_per_kwh
         )
         server.name = body.name
+        server.host = body.host
+        server.port = body.port
+        server.username_encrypted = secret_box.encrypt(username)
+        server.password_encrypted = secret_box.encrypt(password)
         server.currency = body.currency.upper()
         server.price_per_kwh = body.price_per_kwh
         server.timezone = body.timezone
+        existing_units = {unit.nut_name: unit for unit in server.units}
+        for nut_name, description in units.items():
+            if nut_name in existing_units:
+                existing_units[nut_name].description = description
+            else:
+                session.add(
+                    ManagedUps(
+                        server_id=server.id,
+                        nut_name=nut_name,
+                        display_name=description or nut_name,
+                        description=description,
+                    )
+                )
         if tariff_changed:
             effective_date = (
                 body.tariff_effective_date or datetime.now(ZoneInfo(body.timezone)).date()
@@ -208,6 +255,7 @@ async def update_server(server_id: int, body: ServerUpdate, request: Request) ->
                 )
             )
         await session.commit()
+        request.app.state.ups_manager.invalidate({unit.id for unit in server.units})
     return {"message": "Server updated"}
 
 
