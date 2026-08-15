@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Server } from "lucide-react";
+import { Pencil, Plus, Server, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { adminApi } from "../api/admin";
@@ -23,6 +23,7 @@ export function Admin() {
     queryFn: adminApi.retention,
   });
   const [serverNotice, setServerNotice] = useState("");
+  const [editingServerId, setEditingServerId] = useState<number | null>(null);
   const [retentionNotice, setRetentionNotice] = useState("");
   const [server, setServer] = useState({
     name: "",
@@ -40,8 +41,10 @@ export function Admin() {
       await operation();
       setServerNotice(success);
       await client.invalidateQueries();
+      return true;
     } catch (error) {
       setServerNotice(error instanceof Error ? error.message : "Action failed");
+      return false;
     }
   };
   const addServer = (event: FormEvent) => {
@@ -72,117 +75,174 @@ export function Admin() {
               key={item.id}
               className="rounded-xl border border-slate-800 p-4"
             >
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const form = new FormData(event.currentTarget);
-                  void act(() =>
-                    adminApi.updateServer(item.id, {
-                      name: String(form.get("name")),
-                      host: String(form.get("host")),
-                      port: Number(form.get("port")),
-                      username: String(form.get("username") || ""),
-                      password: String(form.get("password") || ""),
-                      clear_credentials: form.get("clear_credentials") === "on",
-                      currency: String(form.get("currency")),
-                      price_per_kwh: Number(form.get("price")),
-                      timezone: String(form.get("timezone")),
-                      tariff_effective_date: String(form.get("effective_date")),
-                    }),
-                  );
-                }}
-                className="grid gap-3 md:grid-cols-2 lg:grid-cols-4"
-              >
-                <ServerField
-                  label="Friendly name"
-                  name="name"
-                  value={item.name}
-                />
-                <ServerField label="Host or IP" name="host" value={item.host} />
-                <ServerField
-                  label="Port"
-                  name="port"
-                  value={item.port}
-                  type="number"
-                />
-                <ServerField
-                  label="NUT username"
-                  name="username"
-                  placeholder={
-                    item.has_credentials
-                      ? "Leave blank to keep current"
-                      : "Optional"
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                <div>
+                  <h4 className="font-medium text-slate-100">{item.name}</h4>
+                  <p className="mt-1 text-sm text-slate-400">
+                    {item.host}:{item.port}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {item.currency} {item.price_per_kwh}/kWh · {item.timezone} ·{" "}
+                    {item.has_credentials
+                      ? "Credentials saved"
+                      : "No credentials"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditingServerId(
+                      editingServerId === item.id ? null : item.id,
+                    )
                   }
-                />
-                <ServerField
-                  label="NUT password"
-                  name="password"
-                  type="password"
-                  placeholder={
-                    item.has_credentials
-                      ? "Leave blank to keep current"
-                      : "Optional"
-                  }
-                />
-                <ServerField
-                  label="Currency"
-                  name="currency"
-                  value={item.currency}
-                  maxLength={3}
-                />
-                <ServerField
-                  label="Price per kWh"
-                  name="price"
-                  value={item.price_per_kwh}
-                  type="number"
-                  step="0.0001"
-                />
-                <ServerField
-                  label="Timezone"
-                  name="timezone"
-                  value={item.timezone}
-                />
-                <ServerField
-                  label="Tariff effective date"
-                  name="effective_date"
-                  value={new Date().toISOString().slice(0, 10)}
-                  type="date"
-                />
-                {item.has_credentials && (
-                  <label className="flex items-end gap-2 pb-2 text-xs text-slate-400">
-                    <input name="clear_credentials" type="checkbox" />
-                    Remove saved credentials
-                  </label>
-                )}
-                <button className="self-end rounded-lg border border-cyan-900 px-3 py-2 text-xs text-cyan-300">
-                  Save and test connection
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:border-cyan-900 hover:text-cyan-300"
+                >
+                  {editingServerId === item.id ? (
+                    <X className="h-3.5 w-3.5" />
+                  ) : (
+                    <Pencil className="h-3.5 w-3.5" />
+                  )}
+                  {editingServerId === item.id ? "Cancel" : "Edit"}
                 </button>
-              </form>
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {item.units.map((unit) => (
-                  <form
-                    key={unit.id}
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void act(() =>
-                        adminApi.renameUps(
-                          unit.id,
-                          String(new FormData(event.currentTarget).get("name")),
+              </div>
+              {editingServerId === item.id && (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const form = new FormData(event.currentTarget);
+                    void act(() =>
+                      adminApi.updateServer(item.id, {
+                        name: String(form.get("name")),
+                        host: String(form.get("host")),
+                        port: Number(form.get("port")),
+                        username: String(form.get("username") || ""),
+                        password: String(form.get("password") || ""),
+                        clear_credentials:
+                          form.get("clear_credentials") === "on",
+                        currency: String(form.get("currency")),
+                        price_per_kwh: Number(form.get("price")),
+                        timezone: String(form.get("timezone")),
+                        tariff_effective_date: String(
+                          form.get("effective_date"),
                         ),
-                      );
-                    }}
-                    className="flex gap-2"
-                  >
-                    <input
-                      name="name"
-                      defaultValue={unit.display_name}
-                      className={`${field} min-w-0 flex-1`}
-                    />
-                    <button className="rounded-lg border border-slate-700 px-3 text-xs">
-                      Rename
-                    </button>
-                  </form>
-                ))}
+                      }),
+                    ).then((saved) => {
+                      if (saved) setEditingServerId(null);
+                    });
+                  }}
+                  className="mt-4 grid gap-3 border-t border-slate-800 pt-4 md:grid-cols-2 lg:grid-cols-4"
+                >
+                  <ServerField
+                    label="Friendly name"
+                    name="name"
+                    value={item.name}
+                  />
+                  <ServerField
+                    label="Host or IP"
+                    name="host"
+                    value={item.host}
+                  />
+                  <ServerField
+                    label="Port"
+                    name="port"
+                    value={item.port}
+                    type="number"
+                  />
+                  <ServerField
+                    label="NUT username"
+                    name="username"
+                    placeholder={
+                      item.has_credentials
+                        ? "Leave blank to keep current"
+                        : "Optional"
+                    }
+                  />
+                  <ServerField
+                    label="NUT password"
+                    name="password"
+                    type="password"
+                    placeholder={
+                      item.has_credentials
+                        ? "Leave blank to keep current"
+                        : "Optional"
+                    }
+                  />
+                  <ServerField
+                    label="Currency"
+                    name="currency"
+                    value={item.currency}
+                    maxLength={3}
+                  />
+                  <ServerField
+                    label="Price per kWh"
+                    name="price"
+                    value={item.price_per_kwh}
+                    type="number"
+                    step="0.0001"
+                  />
+                  <ServerField
+                    label="Timezone"
+                    name="timezone"
+                    value={item.timezone}
+                  />
+                  <ServerField
+                    label="Tariff effective date"
+                    name="effective_date"
+                    value={new Date().toISOString().slice(0, 10)}
+                    type="date"
+                  />
+                  {item.has_credentials && (
+                    <label className="flex items-end gap-2 pb-2 text-xs text-slate-400">
+                      <input name="clear_credentials" type="checkbox" />
+                      Remove saved credentials
+                    </label>
+                  )}
+                  <button className="self-end rounded-lg border border-cyan-900 px-3 py-2 text-xs text-cyan-300">
+                    Save and test connection
+                  </button>
+                </form>
+              )}
+              <div className="mt-4 grid gap-2 border-t border-slate-800 pt-4 md:grid-cols-2">
+                {item.units.map((unit) =>
+                  editingServerId === item.id ? (
+                    <form
+                      key={unit.id}
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void act(() =>
+                          adminApi.renameUps(
+                            unit.id,
+                            String(
+                              new FormData(event.currentTarget).get("name"),
+                            ),
+                          ),
+                        );
+                      }}
+                      className="flex gap-2"
+                    >
+                      <input
+                        name="name"
+                        defaultValue={unit.display_name}
+                        className={`${field} min-w-0 flex-1`}
+                      />
+                      <button className="rounded-lg border border-slate-700 px-3 text-xs">
+                        Rename
+                      </button>
+                    </form>
+                  ) : (
+                    <div
+                      key={unit.id}
+                      className="rounded-lg bg-slate-950/40 px-3 py-2"
+                    >
+                      <span className="block text-sm text-slate-200">
+                        {unit.display_name}
+                      </span>
+                      <span className="text-xs text-slate-600">
+                        {unit.nut_name}
+                      </span>
+                    </div>
+                  ),
+                )}
               </div>
             </div>
           ))}
