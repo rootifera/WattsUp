@@ -5,6 +5,8 @@ WattsUp is a self-hosted management interface for
 servers, provides guarded UPS controls, estimates energy costs, sends outage notifications, and
 automates safe shutdowns of remote Linux devices.
 
+![WattsUp dashboard](docs/screenshots/dash.png)
+
 ## Features
 
 - Multiple NUT servers with editable, connection-tested addresses, ports, and credentials
@@ -37,16 +39,6 @@ automates safe shutdowns of remote Linux devices.
 - For remote shutdown, Linux devices with an SSH server
 
 A NUT listener bound only to `127.0.0.1` cannot be reached from another container or host.
-
-## Screenshots
-
-Screenshots can live directly in this repository; no external image host is required. Put them in
-[`docs/screenshots`](docs/screenshots) and reference them with a relative path so they render on
-GitHub, forks, and cloned copies of the README:
-
-```markdown
-![WattsUp dashboard](docs/screenshots/dashboard.png)
-```
 
 Suggested filenames are `dashboard.png`, `cost-and-usage.png`, `ups-controls.png`,
 `shutdown-automation.png`, and `administration.png`. PNG or WebP both work; avoid including real
@@ -163,6 +155,8 @@ WattsUp. The header selector scopes the dashboard, history, details, controls, e
 shutdown automation to the selected database UPS identity. Identical NUT UPS names on different
 servers therefore cannot collide.
 
+![WattsUp controls](docs/screenshots/admin.png)
+
 ## Energy and cost
 
 WattsUp prefers `ups.realpower` when a UPS reports it. Otherwise it estimates current demand:
@@ -192,6 +186,8 @@ readings reduces database growth without removing historical daily or monthly to
 Load percentage can be rounded and output power does not necessarily include UPS conversion losses,
 so figures derived from nominal power are intentionally labelled as estimates rather than
 revenue-grade measurements.
+
+![WattsUp cost](docs/screenshots/cost.png)
 
 ## Mobile interface
 
@@ -246,6 +242,8 @@ available runtime and add battery wear; consult the UPS manufacturer's guidance 
 recurring deep test. Use **Stop battery test** when the device exposes that command and a running
 test needs to be interrupted.
 
+![WattsUp control](docs/screenshots/control.png)
+
 ## Shutdown automation
 
 Each remote Linux device belongs to the UPS selected when the device is created. A rule can combine:
@@ -270,6 +268,7 @@ sudo -n /usr/bin/systemctl poweroff
 sudo -n /usr/sbin/shutdown -h now
 sudo -n /usr/sbin/poweroff
 ```
+![WattsUp shutdown](docs/screenshots/shutdown.png)
 
 ### Set up a remote device
 
