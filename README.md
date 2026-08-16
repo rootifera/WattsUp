@@ -7,7 +7,7 @@ automates safe shutdowns of remote Linux devices.
 
 ## Features
 
-- Multiple NUT servers with independent credentials and connection settings
+- Multiple NUT servers with editable, connection-tested addresses, ports, and credentials
 - Automatic UPS discovery and friendly, editable UPS names
 - Five-second live dashboard updates and human-readable NUT states
 - Battery, runtime, load, voltage, power, firmware, driver, and full NUT variable details
@@ -20,6 +20,7 @@ automates safe shutdowns of remote Linux devices.
 - Effective-dated tariff history and per-server billing time zones
 - Flat electricity tariff and currency configured separately for each NUT server
 - Dynamically discovered and grouped UPS instant commands
+- Live battery-test results with configurable weekly quick and monthly deep-test schedules
 - Typed confirmation for dangerous power commands
 - Database-backed administrator authentication
 - SMTP, Gotify, Pushover, and generic webhook notification channels
@@ -36,6 +37,21 @@ automates safe shutdowns of remote Linux devices.
 - For remote shutdown, Linux devices with an SSH server
 
 A NUT listener bound only to `127.0.0.1` cannot be reached from another container or host.
+
+## Screenshots
+
+Screenshots can live directly in this repository; no external image host is required. Put them in
+[`docs/screenshots`](docs/screenshots) and reference them with a relative path so they render on
+GitHub, forks, and cloned copies of the README:
+
+```markdown
+![WattsUp dashboard](docs/screenshots/dashboard.png)
+```
+
+Suggested filenames are `dashboard.png`, `cost-and-usage.png`, `ups-controls.png`,
+`shutdown-automation.png`, and `administration.png`. PNG or WebP both work; avoid including real
+IP addresses, hostnames, usernames, notification endpoints, or other private infrastructure in the
+captured interface.
 
 ## Installation
 
@@ -132,6 +148,16 @@ NUT servers are added during installation or from **Admin**. Each stores:
 - IANA billing timezone, such as `Europe/London`
 - Discovered UPS units
 
+The **Admin → NUT servers** view shows each server as a read-only summary card. Select **Edit** to
+change its name, host or IP address, port, credentials, tariff, or timezone. **Save and test
+connection** verifies the proposed NUT address before committing it, so an unreachable replacement
+does not overwrite the working configuration. Blank credential fields retain the encrypted saved
+values; credentials can also be explicitly removed.
+
+After a successful connection change, WattsUp discards cached NUT clients so polling moves to the
+new address immediately. It refreshes discovery against that server and adds newly reported UPS
+units without changing the display names of existing units.
+
 UPS identifiers remain unchanged on the NUT server, while their display names can be edited in
 WattsUp. The header selector scopes the dashboard, history, details, controls, energy totals, and
 shutdown automation to the selected database UPS identity. Identical NUT UPS names on different
@@ -207,6 +233,18 @@ on every polling cycle.
 Supported instant commands are discovered from each selected UPS. They are grouped into battery,
 beeper, panel, driver, and dangerous power actions. Dangerous actions require the exact command
 name to be typed before execution.
+
+The battery-test panel displays the live `ups.test.result` value reported by NUT and retains the
+latest changed result. Weekly quick-test and 30-day deep-test schedules can be enabled or disabled
+independently for every UPS. Schedule timestamps and results are stored in PostgreSQL and survive
+application restarts. Dispatching a deep test also resets the quick-test cadence to avoid a
+redundant quick test shortly afterwards.
+
+Test behavior is controlled by the UPS firmware and NUT driver. A quick test is normally brief,
+while a deep test may run the UPS on battery until its low-battery threshold. Deep tests can reduce
+available runtime and add battery wear; consult the UPS manufacturer's guidance before enabling a
+recurring deep test. Use **Stop battery test** when the device exposes that command and a running
+test needs to be interrupted.
 
 ## Shutdown automation
 
